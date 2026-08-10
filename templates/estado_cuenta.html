@@ -1,0 +1,159 @@
+<h2>Estado de cuenta</h2>
+
+{% for cuenta in cuentas %}
+
+<p>
+    Cuenta: {{ cuenta.numero_cuenta }}
+</p>
+
+<a href="{% url 'estado_cuenta_pdf' cuenta.id %}">
+    Descargar PDF
+</a>
+
+<hr>
+
+{% endfor %}
+
+
+
+
+
+
+{% comment %} {% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<h2>📄 Estado de Cuenta</h2>
+
+<form method="get">
+
+<div class="row mb-4">
+
+<div class="col-md-6">
+
+<select name="cuenta" class="form-select">
+
+<option value="">Seleccione una cuenta</option>
+
+{% for c in cuentas %}
+
+<option value="{{ c.id }}"
+{% if cuenta and cuenta.id == c.id %}selected{% endif %}>
+
+{{ c.numero_cuenta }} - {{ c.cliente }}
+
+</option>
+
+{% endfor %}
+
+</select>
+
+</div>
+
+<div class="col-md-2">
+
+<button class="btn btn-primary">
+Consultar
+</button>
+
+</div>
+
+</div>
+
+</form>
+
+{% if cuenta %}
+
+<div class="card">
+
+<div class="card-header bg-primary text-white">
+
+Cuenta N.º {{ cuenta.numero_cuenta }}
+
+</div>
+
+<div class="mb-3">
+
+    
+    <a href="{% url 'estado_cuenta_pdf' cuenta.id %}"
+       class="btn btn-danger">
+
+        📄 Descargar Estado de Cuenta PDF
+
+    </a>
+    
+
+</div>
+
+<div class="card-body">
+
+<p><strong>Cliente:</strong> {{ cuenta.cliente }}</p>
+
+<p><strong>Saldo Actual:</strong> S/. {{ cuenta.saldo }}</p>
+
+</div>
+
+</div>
+
+<table class="table table-striped mt-3">
+
+<thead class="table-dark">
+
+<tr>
+
+<th>Fecha</th>
+<th>Tipo</th>
+<th>Descripción</th>
+<th>Monto</th>
+<th>Saldo Anterior</th>
+<th>Saldo Actual</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for mov in movimientos %}
+
+<tr>
+
+<td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+
+<td>{{ mov.get_tipo_display }}</td>
+
+<td>{{ mov.descripcion }}</td>
+
+<td>S/. {{ mov.monto }}</td>
+
+<td>S/. {{ mov.saldo_anterior }}</td>
+
+<td>S/. {{ mov.saldo_actual }}</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+
+<td colspan="6" class="text-center">
+
+No existen movimientos.
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+{% endif %}
+
+</div>
+
+{% endblock %} {% endcomment %}

@@ -1,0 +1,6 @@
+logo = os.path.join(
+    settings.BASE_DIR,
+    "static",
+    "img",
+    "logo_banco.png"
+)

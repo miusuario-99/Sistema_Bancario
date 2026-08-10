@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <h2 class="mb-4">
+        {{ titulo }}
+    </h2>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="row">
+
+            <!-- COLUMNA IZQUIERDA -->
+            <div class="col-md-6">
+
+                <div class="mb-3">
+                    <label>DNI</label>
+                    {{ form.dni }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Nombres</label>
+                    {{ form.nombres }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Apellidos</label>
+                    {{ form.apellidos }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Fecha de Nacimiento</label>
+                    {{ form.fecha_nacimiento }}
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA -->
+            <div class="col-md-6">
+
+                <div class="mb-3">
+                    <label>Dirección</label>
+                    {{ form.direccion }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Teléfono</label>
+                    {{ form.telefono }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Correo</label>
+                    {{ form.correo }}
+                </div>
+
+                <div class="mb-3">
+                    <label>Estado</label>
+                    {{ form.estado }}
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- BOTONES -->
+        <div class="mt-3">
+
+            <button class="btn btn-success">
+                💾 Guardar
+            </button>
+
+            <a href="{% url 'lista_clientes' %}" class="btn btn-secondary">
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

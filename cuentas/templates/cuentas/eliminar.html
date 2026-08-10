@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+<h3>
+¿Eliminar cuenta?
+</h3>
+
+
+<p>
+Cuenta:
+<strong>{{ cuenta.numero_cuenta }}</strong>
+</p>
+
+
+<p>
+Cliente:
+{{ cuenta.cliente.nombres }}
+{{ cuenta.cliente.apellidos }}
+</p>
+
+
+<form method="post">
+
+{% csrf_token %}
+
+<button class="btn btn-danger">
+Eliminar
+</button>
+
+
+<a href="{% url 'lista_cuentas' %}"
+class="btn btn-secondary">
+Cancelar
+</a>
+
+
+</form>
+
+
+</div>
+
+{% endblock %}

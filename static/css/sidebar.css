@@ -1,0 +1,273 @@
+/* ============================
+   SIDEBAR BANCO PYTHON
+   ============================ */
+
+.sidebar {
+    width: 260px;
+    min-width: 260px;
+    flex: 0 0 260px;
+
+    min-height: 100vh;
+
+    background: linear-gradient(
+        180deg,
+        #0B3A75,
+        #05264d
+    );
+
+    padding: 20px;
+
+    box-shadow:
+        5px 0 20px rgba(0, 0, 0, .20);
+
+    position: relative;
+}
+
+
+/* ============================
+   LOGO
+   ============================ */
+
+.sidebar img {
+
+    background: white;
+
+    padding: 10px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, .25);
+
+    max-width: 120px;
+
+    transition: .3s ease;
+}
+
+.sidebar img:hover {
+
+    transform: scale(1.05);
+
+}
+
+
+/* NOMBRE DEL BANCO */
+
+.sidebar h3,
+.sidebar h4 {
+
+    color: white;
+
+    letter-spacing: .5px;
+
+}
+
+
+/* DESCRIPCIÓN */
+
+.sidebar small {
+
+    opacity: .8;
+
+}
+
+
+/* ============================
+   SEPARADORES
+   ============================ */
+
+.sidebar hr {
+
+    border-color:
+        rgba(255, 255, 255, .20);
+
+    margin: 15px 0;
+
+}
+
+
+/* ============================
+   MENU
+   ============================ */
+
+.sidebar a {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    color: white;
+
+    text-decoration: none;
+
+    padding: 13px 15px;
+
+    margin-bottom: 8px;
+
+    border-radius: 12px;
+
+    font-size: 15px;
+
+    transition:
+        background .25s ease,
+        transform .25s ease,
+        box-shadow .25s ease;
+
+    position: relative;
+
+}
+
+
+/* ============================
+   ICONOS
+   ============================ */
+
+.sidebar a i {
+
+    font-size: 20px;
+
+    width: 25px;
+
+    min-width: 25px;
+
+    text-align: center;
+
+}
+
+
+/* ============================
+   HOVER
+   ============================ */
+
+.sidebar a:hover {
+
+    background:
+        rgba(255, 255, 255, .13);
+
+    transform:
+        translateX(5px);
+
+    color: white;
+
+}
+
+
+/* ============================
+   OPCION ACTIVA
+   ============================ */
+
+.sidebar a.active {
+
+    background:
+        linear-gradient(
+            90deg,
+            #1f5fbf,
+            #174d9b
+        );
+
+    font-weight: bold;
+
+    color: white;
+
+    box-shadow:
+        0 5px 15px rgba(0, 0, 0, .25);
+
+}
+
+
+/* ============================
+   MARCA DORADA ACTIVA
+   ============================ */
+
+.sidebar a.active::before {
+
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+
+    width: 5px;
+
+    height: 30px;
+
+    background: #ffc107;
+
+    border-radius: 0 8px 8px 0;
+
+}
+
+
+/* ============================
+   ICONO DEL LOGO
+   ============================ */
+
+.sidebar .logo-icon {
+
+    font-size: 60px;
+
+    color: #ffc107;
+
+}
+
+
+/* ============================
+   EFECTO ICONO MENU
+   ============================ */
+
+.sidebar a:hover i {
+
+    transform: scale(1.1);
+
+}
+
+.sidebar a i {
+
+    transition: transform .2s ease;
+
+}
+
+
+/* ============================
+   RESPONSIVE
+   ============================ */
+
+@media (max-width: 768px) {
+
+    .sidebar {
+
+        width: 80px;
+
+        padding: 10px;
+
+    }
+
+
+    .sidebar h3,
+    .sidebar h4,
+    .sidebar small,
+    .sidebar a span {
+
+        display: none;
+
+    }
+
+
+    .sidebar a {
+
+        justify-content: center;
+
+        padding: 13px 8px;
+
+    }
+
+
+    .sidebar a.active::before {
+
+        height: 25px;
+
+    }
+
+}

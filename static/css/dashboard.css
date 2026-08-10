@@ -1,0 +1,755 @@
+/* ================= DASHBOARD ================= */
+
+.dashboard-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:25px;
+    margin-top:25px;
+}
+
+.card-dashboard{
+    position:relative;
+    overflow:hidden;
+
+    display:flex;
+    align-items:center;
+    gap:20px;
+
+    padding:25px;
+    border-radius:18px;
+    color:#fff;
+
+    box-shadow:0 12px 25px rgba(0,0,0,.15);
+    transition:.35s;
+}
+
+.card-dashboard:hover{
+    transform:translateY(-8px);
+}
+
+.card-dashboard .icon{
+    width:70px;
+    height:70px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:34px;
+
+    background:rgba(255,255,255,.20);
+    border-radius:50%;
+    flex-shrink:0;
+}
+
+.card-dashboard h3{
+    margin:0;
+    font-size:16px;
+    text-transform:uppercase;
+}
+
+.card-dashboard h1{
+    margin:5px 0 0;
+    font-size:32px;
+    font-weight:bold;
+}
+
+.clientes{
+    background:linear-gradient(135deg,#4e73df,#224abe);
+}
+
+.cuentas{
+    background:linear-gradient(135deg,#1cc88a,#13855c);
+}
+
+.saldo{
+    background:linear-gradient(135deg,#f6c23e,#dda20a);
+}
+
+.movimientos{
+    background:linear-gradient(135deg,#36b9cc,#258391);
+}
+
+/* ============================
+   TABLAS
+============================ */
+
+.table-header{
+
+    background:#0B3A75;
+
+    color:white;
+
+}
+
+.table tbody tr{
+
+    transition:.25s;
+
+}
+
+.table tbody tr:hover{
+
+    background:#eef5ff;
+
+    transform:scale(1.005);
+
+}
+
+/* =====================================================
+   TARJETAS FINANCIERAS
+   ===================================================== */
+
+.dashboard-finance-card {
+    border-radius: 16px;
+    transition: all 0.3s ease;
+}
+
+.dashboard-finance-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+}
+
+
+/* Iconos */
+
+.finance-icon {
+    width: 52px;
+    height: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    font-size: 24px;
+}
+
+
+/* Títulos */
+
+.dashboard-finance-card h3 {
+    font-size: 1.55rem;
+}
+
+
+/* Texto pequeño */
+
+.dashboard-finance-card p {
+    letter-spacing: 0.5px;
+}
+
+/* =====================================================
+   GRÁFICOS DEL DASHBOARD
+   ===================================================== */
+
+.dashboard-chart-card {
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.dashboard-chart-header {
+    background: #0b3a75;
+    color: white;
+    font-weight: 600;
+    padding: 15px 20px;
+    border: none;
+}
+
+.dashboard-chart-card .card-body {
+    padding: 20px;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* =====================================================
+   TABLA ÚLTIMOS MOVIMIENTOS
+   ===================================================== */
+
+.dashboard-table-card {
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.dashboard-table-header {
+    background: #0b3a75;
+    color: white;
+    font-weight: 600;
+    padding: 15px 20px;
+    border: none;
+}
+
+.dashboard-table-card .table {
+    margin-bottom: 0;
+}
+
+.dashboard-table-card thead th {
+    background: #f8f9fa;
+    color: #495057;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.dashboard-table-card tbody td {
+    padding: 14px 18px;
+}
+
+.dashboard-table-card tbody tr {
+    transition: all 0.2s ease;
+}
+
+.dashboard-table-card tbody tr:hover {
+    background-color: #f8fbff;
+}
+
+
+/* Icono de cuenta */
+
+.movement-icon {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-right: 10px;
+
+    border-radius: 10px;
+
+    background: #eaf2ff;
+    color: #0b3a75;
+}
+
+
+/* Badges */
+
+.movement-badge {
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.movement-badge.deposit {
+    background: #d1e7dd;
+    color: #146c43;
+}
+
+.movement-badge.withdrawal {
+    background: #f8d7da;
+    color: #b02a37;
+}
+
+.movement-badge.transfer {
+    background: #cfe2ff;
+    color: #084298;
+}
+
+
+/* Sin movimientos */
+
+.empty-movements {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.empty-movements i {
+    display: block;
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+/* =====================================================
+   NAVBAR PROFESIONAL
+   ===================================================== */
+
+.dashboard-navbar {
+    min-height: 75px;
+    padding: 10px 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+
+/* Logo */
+
+.navbar-logo {
+
+    width: 55px !important;
+    height: 55px !important;
+
+    object-fit: contain;
+
+    border-radius: 10px;
+
+    display: block;
+
+    transition: transform .2s ease;
+}
+
+.navbar-logo:hover {
+    transform: scale(1.05);
+}
+
+.navbar-logo:hover {
+    transform: scale(1.05);
+}
+
+
+/* Nombre del banco */
+
+.navbar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0B3A75;
+    white-space: nowrap;
+}
+
+.dashboard-navbar small {
+    white-space: nowrap;
+}
+
+
+/* Usuario */
+
+.user-info {
+    line-height: 1.25;
+}
+
+
+/* Botón salir */
+
+.logout-button {
+    border-radius: 10px;
+    padding: 7px 14px;
+
+    transition: all .2s ease;
+}
+
+.logout-button:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 4px 10px rgba(220, 53, 69, .20);
+}
+
+
+/* Responsive */
+
+@media (max-width: 576px) {
+
+    .dashboard-navbar {
+        padding: 8px 12px;
+    }
+
+    .navbar-logo {
+        height: 45px;
+    }
+
+    .user-info {
+        display: none;
+    }
+
+}
+
+/* =====================================================
+   GRÁFICOS DEL DASHBOARD
+   ===================================================== */
+
+.dashboard-chart-card {
+
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease;
+}
+
+.dashboard-chart-card:hover {
+
+    transform: translateY(-4px);
+
+    box-shadow:
+        0 12px 28px rgba(0,0,0,.12) !important;
+}
+
+
+/* CABECERA */
+
+.dashboard-chart-header {
+
+    background: #0B3A75;
+
+    color: white;
+
+    font-weight: 700;
+
+    padding: 14px 18px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    border: none;
+}
+
+
+.dashboard-chart-header i {
+
+    color: #ffc107;
+}
+
+
+.chart-subtitle {
+
+    font-size: 12px;
+
+    font-weight: 400;
+
+    color: rgba(255,255,255,.70);
+}
+
+
+/* CONTENEDOR */
+
+.chart-container {
+
+    position: relative;
+
+    width: 100%;
+
+    height: 320px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+}
+
+
+.chart-container canvas {
+
+    max-width: 100%;
+
+    max-height: 100%;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+
+    .chart-container {
+
+        height: 280px;
+
+    }
+
+}
+
+/* =====================================================
+   TABLA ÚLTIMOS MOVIMIENTOS
+   ===================================================== */
+
+.dashboard-table-card {
+
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease;
+}
+
+
+.dashboard-table-card:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 28px rgba(0,0,0,.12) !important;
+}
+
+
+/* CABECERA */
+
+.dashboard-table-header {
+
+    background: #0B3A75;
+
+    color: white;
+
+    padding: 15px 18px;
+
+    border: none;
+
+    font-weight: 700;
+}
+
+
+.dashboard-table-header i {
+
+    color: #ffc107;
+}
+
+
+/* CONTADOR */
+
+.movement-count {
+
+    background: rgba(255,255,255,.95);
+
+    color: #0B3A75;
+
+    padding: 7px 12px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+}
+
+
+/* TABLA */
+
+.dashboard-movements-table {
+
+    margin: 0;
+
+    background: white;
+}
+
+
+.dashboard-movements-table thead th {
+
+    background: #f5f7fb;
+
+    color: #495057;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+    letter-spacing: .3px;
+
+    padding: 14px 18px;
+
+    border-bottom: 1px solid #e9ecef;
+}
+
+
+.dashboard-movements-table tbody td {
+
+    padding: 15px 18px;
+
+    border-bottom: 1px solid #f0f2f5;
+}
+
+
+.dashboard-movements-table tbody tr {
+
+    transition:
+        background .2s ease;
+}
+
+
+.dashboard-movements-table tbody tr:hover {
+
+    background: #f7faff;
+}
+
+
+/* ICONO CUENTA */
+
+.movement-icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+
+    border-radius: 12px;
+
+    background: #e7f1ff;
+
+    color: #0d6efd;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-right: 12px;
+}
+
+.movement-icon i {
+    font-size: 20px;
+    color: #0d6efd;
+}
+
+/* BADGES */
+
+.movement-badge {
+
+    padding: 7px 11px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+}
+
+
+.movement-badge.deposit {
+
+    background: #d1e7dd;
+
+    color: #146c43;
+}
+
+
+.movement-badge.withdrawal {
+
+    background: #f8d7da;
+
+    color: #b02a37;
+}
+
+
+.movement-badge.transfer {
+
+    background: #cff4fc;
+
+    color: #087990;
+}
+
+
+/* MONTO */
+
+.movement-amount {
+
+    font-weight: 700;
+
+    color: #212529;
+}
+
+
+/* FECHA */
+
+.movement-date {
+
+    color: #6c757d;
+
+    font-size: 14px;
+}
+
+
+/* SIN MOVIMIENTOS */
+
+.empty-movements {
+
+    text-align: center;
+
+    padding: 45px 20px;
+
+    color: #6c757d;
+}
+
+
+.empty-movements i {
+
+    font-size: 45px;
+
+    opacity: .45;
+}
+
+
+.empty-movements h6 {
+
+    font-weight: 700;
+
+    color: #495057;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+
+    .dashboard-movements-table {
+
+        min-width: 650px;
+
+    }
+
+}
+
+/* ICONO DE CUENTA */
+
+.dashboard-movements-table .movement-icon {
+
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+
+    border-radius: 12px;
+
+    background: #e7f1ff !important;
+
+    color: #0d6efd !important;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-right: 12px;
+}
+
+.dashboard-movements-table .movement-icon i {
+
+    color: #0d6efd !important;
+
+    font-size: 20px;
+
+    display: inline-block;
+}
+
+.dashboard-movements-table .movement-icon {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    margin-right: 12px;
+
+    border-radius: 12px;
+
+    background: #e7f1ff !important;
+}
+
+.dashboard-movements-table .movement-icon i {
+    display: inline-block !important;
+
+    font-size: 20px !important;
+
+    color: #0d6efd !important;
+}
+
+
+

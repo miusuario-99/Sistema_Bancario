@@ -1,0 +1,1547 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- ================= BIENVENIDA ================= -->
+
+<div class="card border-0 shadow-lg mb-4">
+
+    <div class="card-body p-4">
+
+        <div class="row align-items-center">
+
+            <div class="col-md-8">
+
+                <h2 class="fw-bold text-primary mb-2">
+                    <i class="bi bi-bank2"></i>
+                    Sistema Bancario
+                </h2>
+
+                <h5 class="text-dark mb-2">
+                    Panel de Control
+                </h5>
+
+                <p class="text-muted mb-0">
+                    Bienvenido,
+                    <strong>{{ user.username }}</strong>.
+                    Administra clientes, cuentas y movimientos bancarios desde un solo lugar.
+                </p>
+
+            </div>
+
+            <div class="col-md-4 text-end">
+
+                <i class="bi bi-graph-up-arrow" style="font-size:70px;color:#0d6efd;opacity:.15;"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- FILTRO POR FECHAS -->
+
+<div class="card shadow-lg border-0 mb-4">
+
+    <div class="card-body p-4">
+
+    <div class="row align-items-center">
+
+        <!-- INFORMACIÓN PRINCIPAL -->
+
+        <div class="col-lg-7">
+
+            <div class="d-flex align-items-center mb-3">
+
+                <div class="me-3">
+
+                    <i class="bi bi-bank2 text-primary"
+                       style="font-size:55px;">
+                    </i>
+
+                </div>
+
+                <div>
+
+                    <h2 class="fw-bold text-primary mb-0">
+                        Banco Python
+                    </h2>
+
+                    <p class="text-muted mb-0">
+                        Sistema Bancario Administrativo
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <h5 class="mb-2">
+
+                <i class="bi bi-person-circle text-primary"></i>
+
+                Bienvenido,
+                <strong>{{ request.user.username }}</strong>
+
+            </h5>
+
+            <p class="text-muted mb-0">
+
+                Administra clientes, cuentas y movimientos
+                bancarios desde un solo lugar.
+
+            </p>
+
+        </div>
+
+
+        <!-- INFORMACIÓN DEL SISTEMA -->
+
+        <div class="col-lg-5 mt-4 mt-lg-0">
+
+            <div class="bg-light rounded-3 p-3">
+
+                <div class="d-flex justify-content-between
+                            align-items-center mb-3">
+
+                    <span class="fw-bold">
+
+                        <i class="bi bi-activity text-success"></i>
+
+                        Estado del sistema
+
+                    </span>
+
+                    <span class="badge bg-success px-3 py-2">
+
+                        <i class="bi bi-check-circle-fill"></i>
+                        Operativo
+
+                    </span>
+
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span class="text-muted">
+
+                        <i class="bi bi-calendar3"></i>
+                        Fecha
+
+                    </span>
+
+                    <strong>
+                        {{ fecha_actual|date:"d/m/Y H:i" }}
+                    </strong>
+
+                </div>
+
+                <div class="d-flex justify-content-between mb-2">
+
+                    <span class="text-muted">
+
+                        <i class="bi bi-database"></i>
+                        Base de datos
+
+                    </span>
+
+                    <strong>
+                        MySQL
+                    </strong>
+
+                </div>
+
+                <div class="d-flex justify-content-between">
+
+                    <span class="text-muted">
+
+                        <i class="bi bi-shield-check"></i>
+                        Seguridad
+
+                    </span>
+
+                    <strong class="text-success">
+
+                        Activa
+
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+<!-- ================= TARJETAS ================= -->
+
+<div class="row g-4 mb-4">
+   
+    <!-- ================= INDICADORES FINANCIEROS ================= -->
+
+<div class="row g-4 mt-1 mb-4">
+
+    <!-- TOTAL DEPÓSITOS -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-finance-card border-0 shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+
+                        <p class="text-muted text-uppercase fw-bold small mb-2">
+                            Total Depósitos
+                        </p>
+
+                        <h3 class="fw-bold mb-1 text-success">
+                            S/. {{ total_depositos|floatformat:2 }}
+                        </h3>
+
+                        <small class="text-muted">
+                            Dinero ingresado
+                        </small>
+
+                    </div>
+
+                    <div class="finance-icon bg-success-subtle text-success">
+
+                        <i class="bi bi-cash-coin"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- TOTAL RETIROS -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-finance-card border-0 shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+
+                        <p class="text-muted text-uppercase fw-bold small mb-2">
+                            Total Retiros
+                        </p>
+
+                        <h3 class="fw-bold mb-1 text-danger">
+                            S/. {{ total_retiros|floatformat:2 }}
+                        </h3>
+
+                        <small class="text-muted">
+                            Dinero retirado
+                        </small>
+
+                    </div>
+
+                    <div class="finance-icon bg-danger-subtle text-danger">
+
+                        <i class="bi bi-wallet2"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- TRANSFERENCIAS -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-finance-card border-0 shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+
+                        <p class="text-muted text-uppercase fw-bold small mb-2">
+                            Transferencias
+                        </p>
+
+                        <h3 class="fw-bold mb-1 text-primary">
+                            S/. {{ total_transferencias|floatformat:2 }}
+                        </h3>
+
+                        <small class="text-muted">
+                            Operaciones realizadas
+                        </small>
+
+                    </div>
+
+                    <div class="finance-icon bg-primary-subtle text-primary">
+
+                        <i class="bi bi-arrow-left-right"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- PROMEDIO -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-finance-card border-0 shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+
+                        <p class="text-muted text-uppercase fw-bold small mb-2">
+                            Promedio
+                        </p>
+
+                        <h3 class="fw-bold mb-1 text-warning">
+                            S/. {{ promedio_movimiento|floatformat:2 }}
+                        </h3>
+
+                        <small class="text-muted">
+                            Por movimiento
+                        </small>
+
+                    </div>
+
+                    <div class="finance-icon bg-warning-subtle text-warning">
+
+                        <i class="bi bi-graph-up-arrow"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+    <!-- ================= TARJETAS KPI ================= -->
+
+<div class="row g-3 mb-4">
+
+    <!-- Clientes -->
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-clientes">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase text-muted mb-2">
+                        Clientes
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        {{ total_clientes }}
+                    </h2>
+
+                    <small class="text-muted">
+                        Clientes registrados
+                    </small>
+
+                </div>
+
+                <i class="bi bi-people-fill display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Cuentas -->
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-cuentas">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase text-muted mb-2">
+                        Cuentas
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        {{ total_cuentas }}
+                    </h2>
+
+                    <small class="text-muted">
+                        Cuentas activas
+                    </small>
+
+                </div>
+
+                <i class="bi bi-credit-card-2-front-fill display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Saldo -->
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-saldo">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase text-muted mb-2">
+                        Saldo Total
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        S/. {{ saldo_total|floatformat:2 }}
+                    </h2>
+
+                    <small class="text-muted">
+                        Capital administrado
+                    </small>
+
+                </div>
+
+                <i class="bi bi-cash-stack display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Movimientos -->
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-movimientos">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase text-muted mb-2">
+                        Movimientos
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        {{ total_movimientos }}
+                    </h2>
+
+                    <small class="text-muted">
+                        Operaciones registradas
+                    </small>
+
+                </div>
+
+                <i class="bi bi-arrow-left-right display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div> <!-- fin de la fila de Clientes/Cuentas/Saldo/Movimientos -->
+
+
+    <!-- ================= DEPÓSITOS Y RETIROS ================= -->
+
+<div class="row g-3 mb-4">
+
+    <!-- DEPÓSITOS -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-depositos">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase mb-2">
+                        Depósitos
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        {{ total_depositos }}
+                    </h2>
+
+                    <small>
+                        Operaciones de ingreso
+                    </small>
+
+                </div>
+
+                <i class="bi bi-arrow-down-circle display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RETIROS -->
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100 card-retiros">
+
+            <div class="card-body d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <h6 class="text-uppercase mb-2">
+                        Retiros
+                    </h6>
+
+                    <h2 class="fw-bold mb-1">
+                        {{ total_retiros }}
+                    </h2>
+
+                    <small>
+                        Operaciones de salida
+                    </small>
+
+                </div>
+
+                <i class="bi bi-arrow-up-circle display-4 opacity-75"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+<!-- ================= KPIs EJECUTIVOS ================= -->
+
+<div class="row g-4 mb-4">
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <i class="bi bi-cash-stack display-4 text-success mb-3"></i>
+
+                <h6 class="text-muted">
+                    Mayor saldo
+                </h6>
+
+                <h3 class="fw-bold text-success">
+                    S/. {{ mayor_saldo|floatformat:2 }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <i class="bi bi-arrow-down-circle display-4 text-danger mb-3"></i>
+
+                <h6 class="text-muted">
+                    Menor saldo
+                </h6>
+
+                <h3 class="fw-bold text-danger">
+                    S/. {{ menor_saldo|floatformat:2 }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <i class="bi bi-graph-up-arrow display-4 text-primary mb-3"></i>
+
+                <h6 class="text-muted">
+                    Saldo promedio
+                </h6>
+
+                <h3 class="fw-bold text-primary">
+                    S/. {{ saldo_promedio|floatformat:2 }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="card dashboard-card border-0 shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <i class="bi bi-person-badge-fill display-4 text-warning mb-3"></i>
+
+                <h6 class="text-muted">
+                    Más cuentas
+                </h6>
+
+                <h5 class="fw-bold">
+
+                    {% if cliente_mas_cuentas %}
+                        {{ cliente_mas_cuentas.nombres }}
+                    {% else %}
+                        -
+                    {% endif %}
+
+                </h5>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= ACCESOS RÁPIDOS ================= -->
+
+<div class="card border-0 shadow-sm quick-actions-card">
+
+    <div class="card-header quick-actions-header">
+
+        <div>
+            <i class="bi bi-lightning-charge-fill me-2"></i>
+            Accesos rápidos
+        </div>
+
+        <small>
+            Operaciones principales
+        </small>
+
+    </div>
+
+
+    <div class="card-body">
+
+        <div class="quick-actions">
+
+            <!-- CLIENTES -->
+
+            <a href="{% url 'lista_clientes' %}"
+               class="quick-card clientes">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-people-fill"></i>
+
+                </div>
+
+                <span>
+                    Clientes
+                </span>
+
+            </a>
+
+
+            <!-- CUENTAS -->
+
+            <a href="{% url 'lista_cuentas' %}"
+               class="quick-card cuentas">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-credit-card-2-front-fill"></i>
+
+                </div>
+
+                <span>
+                    Cuentas
+                </span>
+
+            </a>
+
+
+            <!-- DEPÓSITO -->
+
+            <a href="{% url 'deposito' %}"
+               class="quick-card deposito">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-cash-stack"></i>
+
+                </div>
+
+                <span>
+                    Depósito
+                </span>
+
+            </a>
+
+
+            <!-- RETIRO -->
+
+            <a href="{% url 'retiro' %}"
+               class="quick-card retiro">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-wallet2"></i>
+
+                </div>
+
+                <span>
+                    Retiro
+                </span>
+
+            </a>
+
+
+            <!-- TRANSFERENCIA -->
+
+            <a href="{% url 'transferencia' %}"
+               class="quick-card transferencia">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-arrow-left-right"></i>
+
+                </div>
+
+                <span>
+                    Transferencia
+                </span>
+
+            </a>
+
+
+            <!-- HISTORIAL -->
+
+            <a href="{% url 'historial' %}"
+               class="quick-card historial">
+
+                <div class="quick-icon">
+
+                    <i class="bi bi-clock-history"></i>
+
+                </div>
+
+                <span>
+                    Historial
+                </span>
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= REPORTES ================= -->
+
+<div class="card-body">
+
+    <div class="d-flex flex-wrap gap-3">
+
+        <a href="{% url 'dashboard_pdf' %}"
+           class="btn btn-danger">
+
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+            Dashboard PDF
+
+        </a>
+
+        <a href="{% url 'dashboard_excel' %}"
+           class="btn btn-success">
+
+            <i class="bi bi-file-earmark-excel-fill"></i>
+            Dashboard Excel
+
+        </a>
+
+        <a href="{% url 'clientes_pdf' %}"
+           class="btn btn-primary">
+
+            <i class="bi bi-people-fill"></i>
+            Clientes PDF
+
+        </a>
+
+        <a href="{% url 'cuentas_pdf' %}"
+            class="btn btn-warning text-dark">
+
+                <i class="bi bi-credit-card-fill"></i>
+                Cuentas PDF
+
+        </a>
+
+        <a href="{% url 'movimientos_pdf' %}"
+            class="btn btn-secondary">
+
+                <i class="bi bi-arrow-left-right"></i>
+                Movimientos PDF
+
+        </a>
+
+    </div>
+
+</div>
+
+</a>
+
+<!-- ================= RESUMEN MOVIMIENTOS ================= -->
+
+<div class="row mt-4">
+
+    <div class="col-md-4">
+
+        <div class="alert alert-success shadow-sm">
+
+            <h6>
+                <i class="bi bi-arrow-down-circle"></i>
+                Depósitos
+            </h6>
+
+            <h3>{{ depositos }}</h3>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="alert alert-danger shadow-sm">
+
+            <h6>
+                <i class="bi bi-arrow-up-circle"></i>
+                Retiros
+            </h6>
+
+            <h3>{{ retiros }}</h3>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="alert alert-primary shadow-sm">
+
+            <h6>
+                <i class="bi bi-arrow-left-right"></i>
+                Transferencias
+            </h6>
+
+            <h3>{{ transferencias }}</h3>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= GRÁFICOS Y TABLA ================= -->
+
+<!-- GRÁFICO DE LÍNEAS -->
+
+<div class="row mt-4">
+
+    <div class="col-12">
+
+        <div class="card shadow border-0">
+
+            <div class="card-header bg-primary text-white fw-bold">
+
+                <i class="bi bi-bar-chart-fill"></i>
+                Estadísticas de Movimientos
+
+            </div>
+
+            <div class="card-body" style="height:350px">
+
+                <canvas id="graficoMovimientos"></canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= GRÁFICOS ================= -->
+
+<div class="row g-4 mb-4">
+
+    <!-- DISTRIBUCIÓN DE MOVIMIENTOS -->
+
+    <div class="col-lg-6">
+
+        <div class="card dashboard-chart-card border-0 shadow-sm h-100">
+
+            <div class="card-header dashboard-chart-header">
+
+                <div>
+                    <i class="bi bi-pie-chart-fill me-2"></i>
+                    Distribución de Movimientos
+                </div>
+
+                <span class="chart-subtitle">
+                    Por tipo de operación
+                </span>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="chart-container">
+
+                    <canvas id="graficoDistribucion"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- MOVIMIENTOS POR MES -->
+
+    <div class="col-lg-6">
+
+        <div class="card dashboard-chart-card border-0 shadow-sm h-100">
+
+            <div class="card-header dashboard-chart-header">
+
+                <div>
+                    <i class="bi bi-bar-chart-fill me-2"></i>
+                    Movimientos por Mes
+                </div>
+
+                <span class="chart-subtitle">
+                    Evolución mensual
+                </span>
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="chart-container">
+
+                    <canvas id="graficoMes"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= DEPÓSITOS VS RETIROS ================= -->
+
+<div class="row mt-4">
+
+    <div class="col-12">
+
+        <div class="card shadow border-0">
+
+            <div class="card-header bg-primary text-white fw-bold">
+
+                <i class="bi bi-bar-chart-line-fill"></i>
+                Depósitos vs Retiros por Mes
+
+            </div>
+
+            <div class="card-body" style="height:400px">
+
+                <canvas id="graficoFinanzas"></canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= ÚLTIMOS MOVIMIENTOS ================= -->
+
+<div class="col-12">
+
+    <div class="card dashboard-table-card border-0 shadow-sm">
+
+        <!-- CABECERA -->
+
+        <div class="card-header dashboard-table-header">
+
+            <div class="d-flex justify-content-between align-items-center">
+
+                <div>
+
+                    <i class="bi bi-clock-history me-2"></i>
+
+                    Últimos movimientos
+
+                </div>
+
+                <span class="badge movement-count">
+
+                    {{ ultimos_movimientos|length }} registros
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- TABLA -->
+
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+
+                <table class="table dashboard-movements-table align-middle mb-0">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Cuenta</th>
+
+                            <th>Tipo</th>
+
+                            <th class="text-end">Monto</th>
+
+                            <th>Fecha</th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for mov in ultimos_movimientos %}
+
+                        <tr>
+
+                            <!-- CUENTA -->
+
+                            <td>
+
+                                <div class="movement-icon">
+                                    <i class="bi bi-credit-card-2-front-fill"></i>
+                                </div>
+
+                                    <span class="fw-bold">
+                                        {{ mov.cuenta.numero_cuenta }}
+                                    </span>
+
+                                </div>
+
+                            </td>
+
+                            <!-- TIPO -->
+
+                            <td>
+
+                                {{ mov.tipo }}
+
+                                -
+
+                                {{ mov.get_tipo_display }}
+
+                            </td>
+
+                            <!-- MONTO -->
+
+                            <td class="text-end">
+
+                                <span class="movement-amount">
+
+                                    S/. {{ mov.monto|floatformat:2 }}
+
+                                </span>
+
+                            </td>
+
+
+                            <!-- FECHA -->
+
+                            <td>
+
+                                <span class="movement-date">
+
+                                    <i class="bi bi-calendar3 me-1"></i>
+
+                                    {{ mov.fecha|date:"d/m/Y" }}
+
+                                </span>
+
+                            </td>
+
+                        </tr>
+
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td colspan="4">
+
+                                <div class="empty-movements">
+
+                                    <i class="bi bi-inbox"></i>
+
+                                    <h6 class="mt-2 mb-1">
+                                        Sin movimientos
+                                    </h6>
+
+                                    <p class="mb-0">
+                                        No existen movimientos registrados.
+                                    </p>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= TOP 5 CUENTAS ================= -->
+
+<div class="card shadow border-0 mt-4">
+
+    <div class="card-header bg-primary text-white fw-bold">
+
+        <i class="bi bi-trophy-fill"></i>
+        Top 5 cuentas con mayor saldo
+
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-light">
+
+                    <tr>
+                        <th>#</th>
+                        <th>Cliente</th>
+                        <th>Cuenta</th>
+                        <th class="text-end">Saldo</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for cuenta in top_cuentas %}
+
+                    <tr>
+
+                        <td>
+
+                            {% if forloop.counter == 1 %}
+                                🥇
+                            {% elif forloop.counter == 2 %}
+                                🥈
+                            {% elif forloop.counter == 3 %}
+                                🥉
+                            {% else %}
+                                {{ forloop.counter }}
+                            {% endif %}
+
+                        </td>
+
+                        <td>{{ cuenta.cliente }}</td>
+
+                        <td>{{ cuenta.numero_cuenta }}</td>
+
+                        <td class="text-end fw-bold text-success">
+                            S/. {{ cuenta.saldo|floatformat:2 }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="4" class="text-center text-muted">
+
+                            No existen cuentas registradas.
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= PIE ================= -->
+
+<div class="text-center text-muted mt-5">
+
+    <hr>
+
+    Sistema Bancario desarrollado en Django 5.2 |
+    Banco Python © 2026
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    // =====================================
+    // Configuración común
+    // =====================================
+
+    const opciones = {
+
+        responsive: true,
+
+        maintainAspectRatio: false,
+
+        animation: {
+
+            duration: 1500,
+
+            easing: "easeOutQuart"
+
+        },
+
+        plugins: {
+
+            legend: {
+
+                position: "bottom",
+
+                labels: {
+
+                    padding: 20,
+
+                    font: {
+
+                        size: 13
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    };
+
+    // =====================================
+    // GRÁFICO DE LÍNEAS
+    // =====================================
+
+    new Chart(
+
+        document.getElementById("graficoMovimientos"),
+
+        {
+
+            type: "line",
+
+            data: {
+
+                labels: {{ fechas_movimientos|safe }},
+
+                datasets: [{
+
+                    label: "Movimientos",
+
+                    data: {{ montos_movimientos|safe }},
+
+                    borderColor: "#0d6efd",
+
+                    backgroundColor: "rgba(13,110,253,0.15)",
+
+                    borderWidth: 3,
+
+                    pointRadius: 5,
+
+                    pointHoverRadius: 8,
+
+                    pointBackgroundColor: "#0d6efd",
+
+                    tension: 0.4,
+
+                    fill: true
+
+                }]
+
+            },
+
+            options: opciones
+
+        }
+
+    );
+
+    // =====================================
+    // GRÁFICO CIRCULAR
+    // =====================================
+
+    new Chart(
+
+        document.getElementById("graficoDistribucion"),
+
+        {
+
+            type: "pie",
+
+            data: {
+
+                labels: {{ tipos|safe }},
+
+                datasets: [{
+
+                    data: {{ cantidades|safe }},
+
+                    backgroundColor: [
+
+                        "#198754",
+
+                        "#dc3545",
+
+                        "#0d6efd"
+
+                    ],
+
+                    hoverOffset: 20,
+
+                    borderColor: "#ffffff",
+
+                    borderWidth: 2
+
+                }]
+
+            },
+
+            options: opciones
+
+        }
+
+    );
+
+    // =====================================
+    // GRÁFICO DE BARRAS
+    // =====================================
+
+    new Chart(
+
+        document.getElementById("graficoMes"),
+
+        {
+
+            type: "bar",
+
+            data: {
+
+                labels: {{ meses|safe }},
+
+                datasets: [{
+
+                    label: "Monto",
+
+                    data: {{ totales_mes|safe }},
+
+                    backgroundColor: "#ffc107",
+
+                    borderRadius: 8,
+
+                    borderSkipped: false
+
+                }]
+
+            },
+
+            options: opciones
+
+        }
+
+    );
+
+    // =====================================
+// DEPÓSITOS VS RETIROS
+// =====================================
+
+new Chart(
+
+    document.getElementById("graficoFinanzas"),
+
+    {
+
+        type: "bar",
+
+        data: {
+
+            labels: {{ meses_finanzas|safe }},
+
+            datasets: [
+
+                {
+
+                    label: "Depósitos",
+
+                    data: {{ depositos_totales|safe }},
+
+                    backgroundColor: "#198754"
+
+                },
+
+                {
+
+                    label: "Retiros",
+
+                    data: {{ retiros_totales|safe }},
+
+                    backgroundColor: "#dc3545"
+
+                }
+
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: {
+
+                    position: "top"
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true
+
+                }
+
+            }
+
+        }
+
+    }
+
+);
+
+});
+
+</script>
+
+{% endblock %}

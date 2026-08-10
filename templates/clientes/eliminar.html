@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <div class="card shadow">
+
+        <div class="card-body">
+
+            <h3 class="text-danger">
+
+                Eliminar Cliente
+
+            </h3>
+
+            <hr>
+
+            <p>
+
+                ¿Está seguro de eliminar al cliente?
+
+            </p>
+
+            <h5>
+
+                {{ cliente.nombres }} {{ cliente.apellidos }}
+
+            </h5>
+
+            <form method="POST">
+
+                {% csrf_token %}
+
+                <button class="btn btn-danger">
+
+                    Sí, eliminar
+
+                </button>
+
+                <a href="{% url 'lista_clientes' %}" class="btn btn-secondary">
+
+                    Cancelar
+
+                </a>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

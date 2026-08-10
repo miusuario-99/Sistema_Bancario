@@ -1,0 +1,38 @@
+<h2 style="color:red;">PRUEBA - Lista de Movimientos</h2>
+    <h2>Lista de Movimientos</h2>
+
+    <a href="{% url 'reporte_movimientos_pdf' %}"
+       class="btn btn-primary">
+        📄 Descargar Reporte PDF
+    </a>
+</div>
+
+<form method="get" action="{% url 'reporte_movimientos_pdf' %}" class="row g-3">
+
+    <div class="col-md-3">
+        <label>Desde</label>
+        <input type="date" name="fecha_inicio" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>Hasta</label>
+        <input type="date" name="fecha_fin" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>Tipo</label>
+        <select name="tipo" class="form-select">
+            <option value="">Todos</option>
+            <option value="D">Depósito</option>
+            <option value="R">Retiro</option>
+            <option value="T">Transferencia</option>
+        </select>
+    </div>
+
+    <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary w-100">
+            Generar PDF
+        </button>
+    </div>
+
+</form>

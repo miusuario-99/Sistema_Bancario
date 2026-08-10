@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+<!-- ================= ENCABEZADO ================= -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <div class="d-flex justify-content-between align-items-center">
+
+            <div>
+
+                <h2 class="text-primary mb-1">
+
+                    <i class="bi bi-credit-card-2-front-fill"></i>
+
+                    Gestión de Cuentas
+
+                </h2>
+
+                <p class="text-muted mb-0">
+
+                    Administración de cuentas bancarias del Banco Python
+
+                </p>
+
+            </div>
+
+            <a href="{% url 'nueva_cuenta' %}"
+               class="btn btn-primary">
+
+                <i class="bi bi-plus-circle-fill"></i>
+
+                Nueva Cuenta
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= ESTADÍSTICAS ================= -->
+
+<div class="row mb-4">
+
+
+    <!-- TOTAL CUENTAS -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-body">
+
+                <div class="d-flex align-items-center">
+
+                    <div class="fs-1 text-primary me-3">
+
+                        <i class="bi bi-credit-card-2-front"></i>
+
+                    </div>
+
+
+                    <div>
+
+                        <h6 class="text-muted">
+                            Total Cuentas
+                        </h6>
+
+                        <h3>
+                            {{ total_cuentas }}
+                        </h3>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CUENTAS ACTIVAS -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-body">
+
+                <div class="d-flex align-items-center">
+
+                    <div class="fs-1 text-success me-3">
+
+                        <i class="bi bi-check-circle"></i>
+
+                    </div>
+
+
+                    <div>
+
+                        <h6 class="text-muted">
+                            Cuentas Activas
+                        </h6>
+
+                        <h3>
+                            {{ cuentas_activas }}
+                        </h3>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- SALDO TOTAL -->
+
+    <div class="col-md-4">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-body">
+
+                <div class="d-flex align-items-center">
+
+                    <div class="fs-1 text-warning me-3">
+
+                        <i class="bi bi-cash-stack"></i>
+
+                    </div>
+
+
+                    <div>
+
+                        <h6 class="text-muted">
+                            Saldo Total
+                        </h6>
+
+                        <h3>
+                            S/. {{ saldo_total|floatformat:2 }}
+                        </h3>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= BUSCADOR ================= -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <form method="GET">
+
+            <div class="input-group">
+
+                <span class="input-group-text">
+
+                    <i class="bi bi-search"></i>
+
+                </span>
+
+
+                <input type="text"
+                       name="q"
+                       value="{{ query }}"
+                       class="form-control"
+                       placeholder="Buscar por número de cuenta o cliente">
+
+
+                <button class="btn btn-dark">
+
+                    <i class="bi bi-search"></i>
+
+                    Buscar
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- ================= BOTONES REPORTES ================= -->
+
+<div class="text-end mb-3">
+
+    <!-- PDF CUENTAS -->
+
+    <a href="{% url 'cuentas_pdf' %}"
+       class="btn btn-danger me-2">
+
+        <i class="bi bi-file-earmark-pdf-fill"></i>
+
+        PDF
+
+    </a>
+
+    <!-- EXCEL CUENTAS -->
+
+    <a href="{% url 'reporte_cuentas_excel' %}"
+       class="btn btn-success">
+
+        <i class="bi bi-file-earmark-excel-fill"></i>
+
+        Excel
+
+    </a>
+
+</div>
+
+<!-- ================= TABLA ================= -->
+
+<div class="card shadow-sm">
+
+<div class="card-body">
+
+<div class="table-responsive">
+
+<table class="table table-hover align-middle">
+
+<thead class="table-header">
+
+<tr>
+    <th>Número</th>
+    <th>Cliente</th>
+    <th>Tipo</th>
+    <th>Saldo</th>
+    <th>Estado</th>
+    <th>Acciones</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for cuenta in page_obj %}
+
+<tr>
+
+<td>
+{{ cuenta.numero_cuenta }}
+</td>
+
+<td>
+{{ cuenta.cliente.nombres }}
+{{ cuenta.cliente.apellidos }}
+</td>
+
+<td>
+
+{% if cuenta.tipo_cuenta == "AH" %}
+
+<span class="badge bg-success rounded-pill">
+
+{{ cuenta.get_tipo_cuenta_display }}
+
+</span>
+
+{% else %}
+
+<span class="badge bg-primary rounded-pill">
+
+{{ cuenta.get_tipo_cuenta_display }}
+
+</span>
+
+{% endif %}
+
+</td>
+
+<td class="fw-bold text-end">
+
+S/. {{ cuenta.saldo|floatformat:2 }}
+
+</td>
+
+<td>
+
+{% if cuenta.estado == "A" %}
+
+<span class="badge bg-success rounded-pill">
+
+<i class="bi bi-check-circle-fill"></i>
+
+{{ cuenta.get_estado_display }}
+
+</span>
+
+{% else %}
+
+<span class="badge bg-danger rounded-pill">
+
+<i class="bi bi-x-circle-fill"></i>
+
+{{ cuenta.get_estado_display }}
+
+</span>
+
+{% endif %}
+
+</td>
+
+<td class="text-center">
+
+<a href="{% url 'editar_cuenta' cuenta.id %}"
+
+class="btn btn-warning btn-sm"
+
+title="Editar">
+
+<i class="bi bi-pencil-square"></i>
+
+</a>
+
+<a href="{% url 'eliminar_cuenta' cuenta.id %}"
+   class="btn btn-danger btn-sm btn-eliminar"
+   title="Eliminar">
+
+    <i class="bi bi-trash-fill"></i>
+
+</a>
+
+</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+<td colspan="6" class="text-center">
+No existen cuentas registradas
+</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- ================= PAGINACIÓN ================= -->
+
+<nav class="mt-4">
+
+<ul class="pagination justify-content-center">
+
+{% if page_obj.has_previous %}
+
+<li class="page-item">
+
+<a class="page-link"
+href="?page={{ page_obj.previous_page_number }}&q={{ query }}">
+
+Anterior
+
+</a>
+
+</li>
+
+{% endif %}
+
+<li class="page-item active">
+
+<span class="page-link">
+
+Página {{ page_obj.number }}
+
+</span>
+
+</li>
+
+{% if page_obj.has_next %}
+
+<li class="page-item">
+
+<a class="page-link"
+href="?page={{ page_obj.next_page_number }}&q={{ query }}">
+
+Siguiente
+
+</a>
+
+</li>
+
+{% endif %}
+
+</ul>
+
+</nav>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+
+document.querySelectorAll(".btn-eliminar").forEach(function(boton){
+
+    boton.addEventListener("click", function(e){
+
+        e.preventDefault();
+
+        let url = this.href;
+
+        Swal.fire({
+
+            title: "¿Eliminar cuenta?",
+
+            text: "Esta acción no se puede deshacer.",
+
+            icon: "warning",
+
+            showCancelButton: true,
+
+            confirmButtonColor: "#d33",
+
+            cancelButtonColor: "#6c757d",
+
+            confirmButtonText: "Sí, eliminar",
+
+            cancelButtonText: "Cancelar"
+
+        }).then((result)=>{
+
+            if(result.isConfirmed){
+
+                window.location.href = url;
+
+            }
+
+        });
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

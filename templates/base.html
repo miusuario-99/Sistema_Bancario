@@ -1,0 +1,398 @@
+{% load static %}
+{% load permisos %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon"
+      type="image/png"
+      href="{% static 'img/logo_banco_python.png' %}">
+
+    <title>Banco Python</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tables.css' %}">
+    
+</head>
+
+<body>
+
+<div class="d-flex">
+
+<!-- ================= SIDEBAR ================= -->
+
+<div class="sidebar text-white p-3">
+
+    <div class="text-center mb-4">
+
+        <img src="{% static 'img/logo_banco_python.png' %}"
+            alt="Banco Python"
+            class="img-fluid mb-3"
+            style="max-width:120px;">
+
+        <h4 class="fw-bold text-white mt-2">
+            Banco Python
+        </h4>
+
+        <small class="text-light">
+            Tecnología • Seguridad • Confianza
+        </small>
+
+    </div>
+
+<hr class="border-secondary">
+
+    <hr>
+
+    <!-- DASHBOARD -->
+
+        <a href="{% url 'dashboard' %}"
+            class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-2"></i>
+            Dashboard
+        </a>    
+
+<!-- ADMINISTRADOR -->
+
+{% if user|tiene_grupo:"Administrador" %}
+
+    <a href="{% url 'lista_clientes' %}"
+       class="{% if request.resolver_match.url_name == 'lista_clientes' %}active{% endif %}">
+        <i class="bi bi-people-fill me-2"></i>
+        Clientes
+    </a>
+
+    <a href="{% url 'lista_cuentas' %}"
+       class="{% if request.resolver_match.url_name == 'lista_cuentas' %}active{% endif %}">
+        <i class="bi bi-credit-card-2-front me-2"></i>
+        Cuentas
+    </a>
+
+    <a href="{% url 'deposito' %}"
+       class="{% if request.resolver_match.url_name == 'deposito' %}active{% endif %}">
+        <i class="bi bi-cash-coin me-2"></i>
+        Depósitos
+    </a>
+
+    <a href="{% url 'retiro' %}"
+       class="{% if request.resolver_match.url_name == 'retiro' %}active{% endif %}">
+        <i class="bi bi-wallet2 me-2"></i>
+        Retiros
+    </a>
+
+    <a href="{% url 'transferencia' %}"
+       class="{% if request.resolver_match.url_name == 'transferencia' %}active{% endif %}">
+        <i class="bi bi-arrow-left-right me-2"></i>
+        Transferencias
+    </a>
+
+    <a href="{% url 'historial' %}"
+       class="{% if request.resolver_match.url_name == 'historial' %}active{% endif %}">
+        <i class="bi bi-clock-history me-2"></i>
+        Historial
+    </a>
+
+{% endif %}
+
+
+<!-- REPORTES Y AUDITORÍA -->
+
+{% if user|tiene_grupo:"Administrador" or user|tiene_grupo:"Supervisor" %}
+
+    <a href="{% url 'reportes' %}"
+       class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
+
+        <i class="bi bi-file-earmark-bar-graph me-2"></i>
+        Reportes
+
+    </a>
+
+
+    <a href="{% url 'lista_auditoria' %}"
+       class="{% if request.resolver_match.url_name == 'lista_auditoria' %}active{% endif %}">
+
+        <i class="bi bi-shield-check me-2"></i>
+        Auditoría
+
+    </a>
+
+{% endif %}
+
+<!-- CAJERO -->
+
+{% if user|tiene_grupo:"Cajero" %}
+
+
+<a href="{% url 'lista_clientes' %}">
+
+<i class="bi bi-people-fill"></i>
+
+Clientes
+
+</a>
+
+<a href="#">
+
+<i class="bi bi-credit-card"></i>
+
+Cuentas
+
+</a>
+
+<a href="{% url 'deposito' %}">
+
+<i class="bi bi-cash"></i>
+
+Depósitos
+
+</a>
+
+<a href="{% url 'retiro' %}">
+
+<i class="bi bi-cash-stack"></i>
+
+Retiros
+
+</a>
+
+<a href="{% url 'transferencia' %}">
+
+<i class="bi bi-arrow-left-right"></i>
+
+Transferencias
+
+</a>
+
+<a href="{% url 'historial' %}">
+
+<i class="bi bi-clock"></i>
+
+Historial
+
+</a>
+
+{% endif %}
+
+<!-- SUPERVISOR -->
+
+{% if user|tiene_grupo:"Supervisor" %}
+
+<a href="{% url 'historial' %}">
+
+<i class="bi bi-clock-history"></i>
+
+Historial
+
+</a>
+
+{% endif %}
+
+</div>
+
+<!-- ================= CONTENIDO ================= -->
+
+<div class="contenido">
+
+<!-- ================= NAVBAR ================= -->
+
+<nav class="navbar navbar-expand-lg bg-white shadow-sm dashboard-navbar">
+
+    <div class="container-fluid">
+
+        <!-- MARCA -->
+
+        <div class="d-flex align-items-center">
+
+            <img src="{% static 'img/logo_banco_python.png' %}"
+                alt="Banco Python"
+                class="navbar-logo me-3"
+                style="width:55px; height:55px; object-fit:contain;">
+
+            <div class="d-none d-sm-block">
+
+                <div class="navbar-title">
+                    Banco Python
+                </div>
+
+                <small class="text-muted">
+                    Sistema Bancario Administrativo
+                </small>
+
+            </div>
+
+        </div>
+
+
+        <!-- USUARIO -->
+
+        <div class="d-flex align-items-center">
+
+            {% if user.is_authenticated %}
+
+                <div class="user-info me-3 text-end">
+
+                    <div class="fw-bold">
+
+                        <i class="bi bi-person-circle text-primary me-1"></i>
+
+                        {{ user.username }}
+
+                    </div>
+
+                    <small class="text-muted">
+                        Usuario autenticado
+                    </small>
+
+                </div>
+
+
+                <!-- SALIR -->
+
+                <form method="post"
+                      action="{% url 'logout' %}"
+                      class="d-inline">
+
+                    {% csrf_token %}
+
+                    <button type="submit"
+                            class="btn btn-outline-danger btn-sm logout-button">
+
+                        <i class="bi bi-box-arrow-right me-1"></i>
+
+                        Salir
+
+                    </button>
+
+                </form>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</nav>
+
+<div class="container-fluid p-4">
+
+    <!-- ================= MENSAJES ================= -->
+
+{% if messages %}
+
+    {% for message in messages %}
+
+        <div class="alert 
+            {% if message.tags == 'success' %}
+                alert-success
+            {% elif message.tags == 'error' %}
+                alert-danger
+            {% else %}
+                alert-info
+            {% endif %}
+            alert-dismissible fade show shadow-sm"
+            role="alert">
+
+            <i class="bi 
+            {% if message.tags == 'success' %}
+                bi-check-circle-fill
+            {% elif message.tags == 'error' %}
+                bi-x-circle-fill
+            {% else %}
+                bi-info-circle-fill
+            {% endif %}">
+            </i>
+
+            {{ message }}
+
+
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert">
+            </button>
+
+        </div>
+
+    {% endfor %}
+
+{% endif %}
+
+{% block content %}
+
+{% endblock %}
+
+</div>
+
+<footer class="text-center text-muted mt-4 mb-3">
+
+Banco Python © 2026
+
+<br>
+
+Sistema Bancario Administrativo
+
+</footer>
+
+</div>
+
+</div>
+
+{% block scripts %}
+{% endblock %}
+
+<!-- Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Mensajes Django -->
+{% if messages %}
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    {% for message in messages %}
+
+    Swal.fire({
+
+        icon: "{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}info{% endif %}",
+
+        title: "Banco Python",
+
+        text: "{{ message }}",
+
+        confirmButtonColor: "#0B3A75",
+
+        timer: 2500,
+
+        timerProgressBar: true,
+
+        showConfirmButton: false
+
+    });
+
+    {% endfor %}
+
+});
+
+</script>
+
+{% endif %}
+
+</body>
+
+</html>

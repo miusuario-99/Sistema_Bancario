@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <!-- Encabezado -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+
+            <div>
+                <h2 class="text-primary mb-1">
+                    <i class="bi bi-shield-check"></i>
+                    Auditoría del Sistema
+                </h2>
+
+                <p class="text-muted mb-0">
+                    Registro de todas las actividades realizadas por los usuarios.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Tarjetas -->
+    <div class="row mb-4">
+
+        <div class="col-md-3">
+            <div class="card shadow border-0 text-center">
+                <div class="card-body">
+                    <i class="bi bi-journal-text fs-1 text-primary"></i>
+                    <h3 class="fw-bold">{{ page_obj.paginator.count }}</h3>
+                    <small>Total registros</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow border-0 text-center">
+                <div class="card-body">
+                    <i class="bi bi-files fs-1 text-success"></i>
+                    <h3 class="fw-bold">{{ page_obj.number }}</h3>
+                    <small>Página actual</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow border-0 text-center">
+                <div class="card-body">
+                    <i class="bi bi-collection fs-1 text-warning"></i>
+                    <h3 class="fw-bold">{{ page_obj.paginator.num_pages }}</h3>
+                    <small>Total páginas</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card shadow border-0 text-center">
+                <div class="card-body">
+                    <i class="bi bi-person-check fs-1 text-danger"></i>
+                    <h3 class="fw-bold">{{ page_obj.object_list|length }}</h3>
+                    <small>Registros visibles</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+        <!-- Buscador -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <form method="GET">
+
+                <div class="row g-2">
+
+                    <div class="col-md-10">
+
+                        <input
+                            type="text"
+                            name="q"
+                            class="form-control"
+                            placeholder="Buscar usuario, módulo, acción o descripción..."
+                            value="{{ query }}">
+
+                    </div>
+
+                    <div class="col-md-2 d-grid">
+
+                        <button class="btn btn-primary">
+
+                            <i class="bi bi-search"></i>
+
+                            Buscar
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <!-- Botones -->
+
+    <div class="d-flex justify-content-end mb-3 gap-2">
+
+        <a href="{% url 'auditoria_pdf' %}" class="btn btn-danger">
+
+            <i class="bi bi-file-earmark-pdf"></i>
+
+            PDF
+
+        </a>
+
+        <a href="{% url 'auditoria_excel' %}" class="btn btn-success">
+
+            <i class="bi bi-file-earmark-excel"></i>
+
+            Excel
+
+        </a>
+
+    </div>
+
+    <!-- Tabla -->
+
+    <div class="card shadow border-0">
+
+        <div class="card-header bg-primary text-white fw-bold">
+
+            <i class="bi bi-list-check"></i>
+
+            Historial de Auditoría
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>#</th>
+
+                        <th>Usuario</th>
+
+                        <th>Módulo</th>
+
+                        <th>Acción</th>
+
+                        <th>Descripción</th>
+
+                        <th>Fecha</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for registro in page_obj %}
+
+                <tr>
+
+    <td>{{ forloop.counter }}</td>
+
+    <td>
+        {% if registro.usuario %}
+            <i class="bi bi-person-circle text-primary"></i>
+            {{ registro.usuario.username }}
+        {% else %}
+            <span class="text-muted">Sistema</span>
+        {% endif %}
+    </td>
+
+    <td>
+        <span class="badge bg-dark">
+            {{ registro.modulo }}
+        </span>
+    </td>
+
+    <td>
+
+        {% if registro.accion == "Nuevo cliente" or registro.accion == "CREAR" %}
+
+            <span class="badge bg-success">
+                <i class="bi bi-plus-circle"></i>
+                {{ registro.accion }}
+            </span>
+
+        {% elif registro.accion == "Editar cliente" or registro.accion == "EDITAR" %}
+
+            <span class="badge bg-primary">
+                <i class="bi bi-pencil-square"></i>
+                {{ registro.accion }}
+            </span>
+
+        {% elif registro.accion == "Eliminar cliente" or registro.accion == "ELIMINAR" %}
+
+            <span class="badge bg-danger">
+                <i class="bi bi-trash"></i>
+                {{ registro.accion }}
+            </span>
+
+        {% elif registro.accion == "Login" %}
+
+            <span class="badge bg-success">
+                <i class="bi bi-box-arrow-in-right"></i>
+                Login
+            </span>
+
+        {% elif registro.accion == "Logout" %}
+
+            <span class="badge bg-secondary">
+                <i class="bi bi-box-arrow-right"></i>
+                Logout
+            </span>
+
+        {% else %}
+
+            <span class="badge bg-info">
+                <i class="bi bi-activity"></i>
+                {{ registro.accion }}
+            </span>
+
+        {% endif %}
+
+    </td>
+
+    <td>{{ registro.descripcion }}</td>
+
+    <td>{{ registro.fecha|date:"d/m/Y H:i" }}</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+
+    <td colspan="6" class="text-center py-4">
+
+        <i class="bi bi-info-circle fs-2"></i>
+
+        <br>
+
+        No existen registros de auditoría.
+
+    </td>
+
+</tr>
+
+{% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <!-- Paginación -->
+
+    <nav class="mt-4">
+
+        <ul class="pagination justify-content-center">
+
+            {% if page_obj.has_previous %}
+
+                <li class="page-item">
+
+                    <a class="page-link"
+                       href="?q={{ query }}&page={{ page_obj.previous_page_number }}">
+
+                        <i class="bi bi-chevron-left"></i>
+
+                        Anterior
+
+                    </a>
+
+                </li>
+
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+
+                {% if page_obj.number == num %}
+
+                    <li class="page-item active">
+
+                        <span class="page-link">
+
+                            {{ num }}
+
+                        </span>
+
+                    </li>
+
+                {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+
+                    <li class="page-item">
+
+                        <a class="page-link"
+                           href="?q={{ query }}&page={{ num }}">
+
+                            {{ num }}
+
+                        </a>
+
+                    </li>
+
+                {% endif %}
+
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+
+                <li class="page-item">
+
+                    <a class="page-link"
+                       href="?q={{ query }}&page={{ page_obj.next_page_number }}">
+
+                        Siguiente
+
+                        <i class="bi bi-chevron-right"></i>
+
+                    </a>
+
+                </li>
+
+            {% endif %}
+
+        </ul>
+
+    </nav>
+
+    </div>
+
+{% endblock %}
