@@ -394,7 +394,143 @@ Sistema\_Bancario/
 
 │   └── views.py
 
-│
+│---
+
+
+
+\## 📸 Capturas de pantalla
+
+
+
+\### 📊 Dashboard
+
+
+
+Panel principal del Sistema Bancario con indicadores de depósitos, retiros, transferencias y estado general del sistema.
+
+
+
+!\[Dashboard](docs/img/dashboard.png)
+
+
+
+\---
+
+
+
+\### 👥 Gestión de Clientes
+
+
+
+Administración de clientes con búsqueda, estadísticas y exportación de información.
+
+
+
+!\[Gestión de Clientes](docs/img/clientes.png)
+
+
+
+\---
+
+
+
+\### 💳 Gestión de Cuentas
+
+
+
+Administración de cuentas bancarias con consulta de saldos, estados y exportación.
+
+
+
+!\[Gestión de Cuentas](docs/img/cuentas.png)
+
+
+
+\---
+
+
+
+\### 💰 Operaciones Bancarias
+
+
+
+El sistema permite realizar depósitos, retiros y transferencias entre cuentas.
+
+
+
+\#### Registrar Depósito
+
+
+
+!\[Registrar Depósito](docs/img/deposito.png)
+
+
+
+\#### Registrar Retiro
+
+
+
+!\[Registrar Retiro](docs/img/retiro.png)
+
+
+
+\#### Registrar Transferencia
+
+
+
+!\[Registrar Transferencia](docs/img/transferencia.png)
+
+
+
+\---
+
+
+
+\### 📜 Historial de Movimientos
+
+
+
+Consulta de operaciones bancarias con filtros por fecha y tipo de movimiento, mostrando saldos anteriores y actuales.
+
+
+
+!\[Historial de Movimientos](docs/img/historial.png)
+
+
+
+\---
+
+
+
+\### 📊 Centro de Reportes
+
+
+
+Generación de reportes de clientes, cuentas y movimientos en formatos PDF y Excel.
+
+
+
+!\[Centro de Reportes](docs/img/reportes.png)
+
+
+
+\---
+
+
+
+\### 🛡️ Auditoría
+
+
+
+Registro de las actividades realizadas por los usuarios del sistema, con búsqueda y exportación de información.
+
+
+
+!\[Auditoría del Sistema](docs/img/auditoria.png)
+
+
+
+\---
 
 ├── reportes/
 
