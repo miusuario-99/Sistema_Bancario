@@ -31,3 +31,6 @@ db.sqlite3-journal
 # Sistema operativo
 Thumbs.db
 .DS_Store
+
+# Django static files de producción
+staticfiles/
