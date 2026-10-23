@@ -30,6 +30,8 @@
 
             <div>
 
+        {% if puede_exportar %}
+
                 <a href="{% url 'reporte_movimientos_pdf' %}?fecha_inicio={{ request.GET.fecha_inicio }}&fecha_fin={{ request.GET.fecha_fin }}&tipo={{ request.GET.tipo }}"
    class="btn btn-danger me-2">
 
@@ -47,6 +49,7 @@
     Excel
 
 </a>
+        {% endif %}
 
             </div>
 
@@ -146,8 +149,9 @@
                     <label>Fecha Inicio</label>
 
                     <input type="date"
-                           name="fecha_inicio"
-                           class="form-control">
+                            name="fecha_inicio"
+                            class="form-control"
+                            value="{{ request.GET.fecha_inicio }}">
 
                 </div>
 
@@ -156,8 +160,9 @@
                     <label>Fecha Fin</label>
 
                     <input type="date"
-                           name="fecha_fin"
-                           class="form-control">
+                            name="fecha_fin"
+                            class="form-control"
+                            value="{{ request.GET.fecha_fin }}">
 
                 </div>
 
@@ -165,14 +170,11 @@
 
                     <label>Tipo</label>
 
-                    <select name="tipo"
-                            class="form-select">
-
-                        <option value="">Todos</option>
-                        <option value="D">Depósitos</option>
-                        <option value="R">Retiros</option>
-                        <option value="T">Transferencias</option>
-
+                    <select name="tipo" class="form-select">
+                        <option value="" {% if not request.GET.tipo %}selected{% endif %}>Todos</option>
+                        <option value="D" {% if request.GET.tipo == "D" %}selected{% endif %}>Depósitos</option>
+                        <option value="R" {% if request.GET.tipo == "R" %}selected{% endif %}>Retiros</option>
+                        <option value="T" {% if request.GET.tipo == "T" %}selected{% endif %}>Transferencias</option>
                     </select>
 
                 </div>

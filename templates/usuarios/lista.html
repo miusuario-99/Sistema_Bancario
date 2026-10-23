@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Administración de usuarios</h2>
+        <a href="{% url 'crear_usuario' %}" class="btn btn-primary">
+            Nuevo usuario
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Correo</th>
+                    <th>Grupos</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>{{ usuario.username }}</td>
+                    <td>{{ usuario.first_name }}</td>
+                    <td>{{ usuario.last_name }}</td>
+                    <td>{{ usuario.email }}</td>
+                    <td>
+                        {% for grupo in usuario.groups.all %}
+                            {{ grupo.name }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            Sin grupo
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if usuario.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario != request.user %}
+                        <form method="post"
+                              action="{% url 'cambiar_estado_usuario' usuario.id %}">
+                            {% csrf_token %}
+                            {% if usuario.is_active %}
+                                <button type="submit" class="btn btn-warning btn-sm">
+                                    Desactivar
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    Activar
+                                </button>
+                            {% endif %}
+                        </form>
+                        {% else %}
+                            Tu cuenta
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">
+                        No hay usuarios registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

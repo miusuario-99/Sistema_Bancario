@@ -31,3 +31,8 @@ db.sqlite3-journal
 # Sistema operativo
 Thumbs.db
 .DS_Store
+# Proyecto duplicado: segundo repositorio Git
+/Sistema_Bancario/
+
+# Inventario local de carpetas y archivos
+estructura.txt

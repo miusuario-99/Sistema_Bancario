@@ -8,6 +8,7 @@ from .forms import CuentaForm
 import re
 from django.db.models import Sum
 from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Alignment, Font
 from django.http import HttpResponse
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -24,12 +25,13 @@ from datetime import datetime
 import os
 from auditoria.utils import registrar_auditoria
 from usuarios.decorators import grupos_permitidos
+from movimientos.models import Movimiento
 
 # ==========================
 # LISTAR CUENTAS
 # ==========================
 
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def lista_cuentas(request):
 
     query = request.GET.get("q", "")
@@ -71,7 +73,7 @@ def lista_cuentas(request):
     cuentas_inactivas = Cuenta.objects.filter(
         estado="I"
     ).count()
-    
+
     saldo_total = Cuenta.objects.aggregate(
         total=Sum("saldo")
     )["total"] or 0
@@ -79,7 +81,7 @@ def lista_cuentas(request):
     return render(request, "cuentas/lista.html", {
 
     "page_obj": page_obj,
-    
+
     "query": query,
 
     "total_cuentas": total_cuentas,
@@ -89,12 +91,12 @@ def lista_cuentas(request):
     "saldo_total": saldo_total,
 
 })
-    
+
     # ==========================
     # NUEVA CUENTA
     # ==========================
 
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador")
 def nueva_cuenta(request):
 
     # Buscar el mayor número de las cuentas con formato CTA-000001
@@ -122,7 +124,7 @@ def nueva_cuenta(request):
             cuenta = form.save(commit=False)
             cuenta.numero_cuenta = numero_generado
             cuenta.save()
-            
+
             registrar_auditoria(
                 request,
                 "Cuentas",
@@ -153,12 +155,12 @@ def nueva_cuenta(request):
             "titulo": "Nueva Cuenta"
         }
     )
-    
+
     # ==========================
     # EDITAR CUENTA
     # ==========================
 
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador")
 def editar_cuenta(request, id):
 
     cuenta = get_object_or_404(
@@ -177,7 +179,7 @@ def editar_cuenta(request, id):
         if form.is_valid():
 
             form.save()
-            
+
             registrar_auditoria(
                 request,
                 "Cuentas",
@@ -193,7 +195,7 @@ def editar_cuenta(request, id):
             return redirect(
                 "lista_cuentas"
             )
-            
+
     else:
 
         form = CuentaForm(
@@ -208,19 +210,31 @@ def editar_cuenta(request, id):
             "titulo": "Editar Cuenta"
         }
     )
-    
-@grupos_permitidos("Administrador", "Cajero")
+
+@grupos_permitidos("Administrador")
 def eliminar_cuenta(request, id):
 
-    cuenta = get_object_or_404(
-        Cuenta,
-        id=id
-    )
+    if request.method != "POST":
+        messages.error(
+            request,
+            "La eliminación requiere una solicitud POST."
+        )
+        return redirect("lista_cuentas")
+
+    cuenta = get_object_or_404(Cuenta, id=id)
+
+    # No eliminar cuentas que tengan historial bancario
+    if Movimiento.objects.filter(cuenta=cuenta).exists():
+        messages.error(
+            request,
+            "No se puede eliminar esta cuenta porque "
+            "tiene movimientos registrados. "
+            "Debe conservarse su historial bancario."
+        )
+        return redirect("lista_cuentas")
 
     numero_cuenta = cuenta.numero_cuenta
     cliente = cuenta.cliente
-
-    cuenta.delete()
 
     registrar_auditoria(
         request,
@@ -229,13 +243,14 @@ def eliminar_cuenta(request, id):
         f"Cuenta {numero_cuenta} eliminada. Cliente: {cliente}"
     )
 
+    cuenta.delete()
+
     messages.success(
         request,
         "Cuenta eliminada correctamente."
     )
 
     return redirect("lista_cuentas")
-
 # ==========================
 # EXPORTAR CUENTAS A EXCEL
 # ==========================
@@ -243,41 +258,131 @@ def eliminar_cuenta(request, id):
 @grupos_permitidos("Administrador", "Supervisor")
 def exportar_cuentas_excel(request):
 
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from copy import copy
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Cuentas"
 
-    # Encabezados
+    # ENCABEZADOS
     ws.append([
-        "N°",
-        "Número de Cuenta",
+        "N.º",
+        "Número de cuenta",
         "Cliente",
         "Tipo",
         "Saldo",
-        "Estado"
+        "Fecha de apertura",
+        "Estado",
     ])
 
-    cuentas = Cuenta.objects.select_related(
-        "cliente"
-    ).order_by("numero_cuenta")
+    cuentas = (
+        Cuenta.objects
+        .select_related("cliente")
+        .order_by("numero_cuenta")
+    )
 
-    contador = 1
-
-    for cuenta in cuentas:
-
+    for numero, cuenta in enumerate(cuentas, start=1):
         ws.append([
-            contador,
+            numero,
             cuenta.numero_cuenta,
             f"{cuenta.cliente.nombres} {cuenta.cliente.apellidos}",
             cuenta.get_tipo_cuenta_display(),
             float(cuenta.saldo),
-            cuenta.get_estado_display()
+            cuenta.fecha_apertura.strftime("%d/%m/%Y")
+                if cuenta.fecha_apertura else "",
+            cuenta.get_estado_display(),
         ])
 
-        contador += 1
+    ultima_fila = ws.max_row
 
+    # FORMATO DEL ENCABEZADO
+    for celda in ws[1]:
+        celda.font = Font(
+            bold=True,
+            color="FFFFFF"
+        )
+        celda.fill = PatternFill(
+            fill_type="solid",
+            fgColor="0B3A75"
+        )
+        celda.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+    ws.row_dimensions[1].height = 25
+
+    # FORMATO DE LAS FILAS
+    borde = Side(style="thin", color="D9E2F3")
+
+    for fila in ws.iter_rows(
+        min_row=2,
+        max_row=ultima_fila
+    ):
+        for celda in fila:
+            celda.border = Border(
+                bottom=borde
+            )
+            celda.alignment = Alignment(
+                vertical="center"
+            )
+
+        # Saldo en soles
+        fila[4].number_format = '"S/." #,##0.00'
+
+        # Centrar número, fecha y estado
+        for indice in (0, 5, 6):
+            fila[indice].alignment = Alignment(
+                horizontal="center",
+                vertical="center"
+            )
+
+    # RESUMEN
+    fila_resumen = ultima_fila + 2
+
+    ws.cell(fila_resumen, 1, "Total de cuentas:")
+    ws.cell(fila_resumen, 2, cuentas.count())
+
+    ws.cell(fila_resumen + 1, 1, "Saldo total:")
+    ws.cell(fila_resumen + 1, 5,
+            float(cuentas.aggregate(
+                total=Sum("saldo")
+            )["total"] or 0))
+
+    ws.cell(
+        fila_resumen + 1, 5
+    ).number_format = '"S/." #,##0.00'
+
+    for fila in (fila_resumen, fila_resumen + 1):
+        for celda in ws[fila]:
+            celda.font = Font(bold=True)
+
+    # ANCHOS DE COLUMNAS
+    anchos = {
+        "A": 8,
+        "B": 22,
+        "C": 38,
+        "D": 22,
+        "E": 18,
+        "F": 22,
+        "G": 16,
+    }
+
+    for columna, ancho in anchos.items():
+        ws.column_dimensions[columna].width = ancho
+
+    # FILTROS Y ENCABEZADO FIJO
+    ws.auto_filter.ref = f"A1:G{ultima_fila}"
+    ws.freeze_panes = "A2"
+
+    # RESPUESTA EXCEL
     response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
     )
 
     response["Content-Disposition"] = (
@@ -294,6 +399,8 @@ def exportar_cuentas_excel(request):
 
 @grupos_permitidos("Administrador", "Supervisor")
 def exportar_cuentas_pdf(request):
+
+    print(">>> EXPORTANDO CUENTAS PDF <<<")
 
     response = HttpResponse(content_type="application/pdf")
 
@@ -375,9 +482,15 @@ def exportar_cuentas_pdf(request):
         "Estado"
     ]]
 
-    cuentas = Cuenta.objects.select_related(
-        "cliente"
-    ).order_by("numero_cuenta")
+    cuentas = list(
+        Cuenta.objects.select_related("cliente")
+    )
+
+    cuentas.sort(
+        key=lambda cuenta: int(
+            cuenta.numero_cuenta.replace("CTA-", "")
+        )
+    )
 
     contador = 1
 
@@ -415,7 +528,7 @@ def exportar_cuentas_pdf(request):
 
         Paragraph(
 
-            f"Total de cuentas: {cuentas.count()}",
+            f"Total de cuentas: {len(cuentas)}",
 
             estilos["Normal"]
 

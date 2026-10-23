@@ -335,15 +335,21 @@ title="Editar">
 
 <i class="bi bi-pencil-square"></i>
 
-</a>
+<form method="post"
+      action="{% url 'eliminar_cuenta' cuenta.id %}"
+      style="display: inline;">
 
-<a href="{% url 'eliminar_cuenta' cuenta.id %}"
-   class="btn btn-danger btn-sm btn-eliminar"
-   title="Eliminar">
+    {% csrf_token %}
 
-    <i class="bi bi-trash-fill"></i>
+    <button type="submit"
+            class="btn btn-danger btn-sm btn-eliminar"
+            title="Eliminar">
 
-</a>
+        <i class="bi bi-trash-fill"></i>
+
+    </button>
+
+</form>
 
 </td>
 
@@ -428,7 +434,7 @@ document.querySelectorAll(".btn-eliminar").forEach(function(boton){
 
         e.preventDefault();
 
-        let url = this.href;
+        const formulario = this.closest("form");
 
         Swal.fire({
 
@@ -452,7 +458,7 @@ document.querySelectorAll(".btn-eliminar").forEach(function(boton){
 
             if(result.isConfirmed){
 
-                window.location.href = url;
+                formulario.submit();
 
             }
 

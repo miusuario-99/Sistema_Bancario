@@ -75,27 +75,63 @@
 
             <form method="GET">
 
-                <div class="row g-2">
+                <div class="row g-3">
 
-                    <div class="col-md-10">
+                    <!-- BÚSQUEDA POR TEXTO -->
+                    <div class="col-md-6">
+
+                        <label for="q" class="form-label">
+                            Buscar por texto
+                        </label>
 
                         <input
                             type="text"
+                            id="q"
                             name="q"
                             class="form-control"
-                            placeholder="Buscar usuario, módulo, acción o descripción..."
+                            placeholder="Usuario, módulo, acción o descripción..."
                             value="{{ query }}">
 
                     </div>
 
-                    <div class="col-md-2 d-grid">
+                    <!-- FECHA INICIAL -->
+                    <div class="col-md-2">
 
-                        <button class="btn btn-primary">
+                        <label for="fecha_inicio" class="form-label">
+                            Fecha desde
+                        </label>
 
+                        <input
+                            type="date"
+                            id="fecha_inicio"
+                            name="fecha_inicio"
+                            class="form-control"
+                            value="{{ fecha_inicio }}">
+
+                    </div>
+
+                    <!-- FECHA FINAL -->
+                    <div class="col-md-2">
+
+                        <label for="fecha_fin" class="form-label">
+                            Fecha hasta
+                        </label>
+
+                        <input
+                            type="date"
+                            id="fecha_fin"
+                            name="fecha_fin"
+                            class="form-control"
+                            value="{{ fecha_fin }}">
+
+                    </div>
+
+                    <!-- BOTÓN BUSCAR -->
+                    <div class="col-md-2 d-grid align-self-end">
+
+                        <button type="submit" class="btn btn-primary">
                             <i class="bi bi-search"></i>
-
                             Buscar
-
                         </button>
 
                     </div>
@@ -172,7 +208,7 @@
 
                 <tr>
 
-    <td>{{ forloop.counter }}</td>
+    <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
 
     <td>
         {% if registro.usuario %}
@@ -191,49 +227,60 @@
 
     <td>
 
-        {% if registro.accion == "Nuevo cliente" or registro.accion == "CREAR" %}
+{% with accion=registro.accion|lower %}
 
-            <span class="badge bg-success">
-                <i class="bi bi-plus-circle"></i>
-                {{ registro.accion }}
-            </span>
+    {% if "nuevo" in accion or "nueva" in accion or "crear" in accion or "depósito" in accion or "deposito" in accion or accion == "crear" %}
 
-        {% elif registro.accion == "Editar cliente" or registro.accion == "EDITAR" %}
+        <span class="badge bg-success">
+            <i class="bi bi-plus-circle"></i>
+            {{ registro.accion }}
+        </span>
 
-            <span class="badge bg-primary">
-                <i class="bi bi-pencil-square"></i>
-                {{ registro.accion }}
-            </span>
+    {% elif "editar" in accion or "modificar" in accion or "actualizar" in accion %}
 
-        {% elif registro.accion == "Eliminar cliente" or registro.accion == "ELIMINAR" %}
+        <span class="badge bg-primary">
+            <i class="bi bi-pencil-square"></i>
+            {{ registro.accion }}
+        </span>
 
-            <span class="badge bg-danger">
-                <i class="bi bi-trash"></i>
-                {{ registro.accion }}
-            </span>
+    {% elif "eliminar" in accion or "borrar" in accion or "retiro" in accion %}
 
-        {% elif registro.accion == "Login" %}
+        <span class="badge bg-danger">
+            <i class="bi bi-trash"></i>
+            {{ registro.accion }}
+        </span>
 
-            <span class="badge bg-success">
-                <i class="bi bi-box-arrow-in-right"></i>
-                Login
-            </span>
+    {% elif "transferencia" in accion %}
 
-        {% elif registro.accion == "Logout" %}
+        <span class="badge bg-info text-dark">
+            <i class="bi bi-arrow-left-right"></i>
+            {{ registro.accion }}
+        </span>
 
-            <span class="badge bg-secondary">
-                <i class="bi bi-box-arrow-right"></i>
-                Logout
-            </span>
+    {% elif "login" in accion %}
 
-        {% else %}
+        <span class="badge bg-success">
+            <i class="bi bi-box-arrow-in-right"></i>
+            {{ registro.accion }}
+        </span>
 
-            <span class="badge bg-info">
-                <i class="bi bi-activity"></i>
-                {{ registro.accion }}
-            </span>
+    {% elif "logout" in accion %}
 
-        {% endif %}
+        <span class="badge bg-secondary">
+            <i class="bi bi-box-arrow-right"></i>
+            {{ registro.accion }}
+        </span>
+
+    {% else %}
+
+        <span class="badge bg-dark">
+            <i class="bi bi-activity"></i>
+            {{ registro.accion }}
+        </span>
+
+    {% endif %}
+
+{% endwith %}
 
     </td>
 
@@ -279,14 +326,16 @@
 
                 <li class="page-item">
 
-                    <a class="page-link"
-                       href="?q={{ query }}&page={{ page_obj.previous_page_number }}">
-
-                        <i class="bi bi-chevron-left"></i>
-
-                        Anterior
-
-                    </a>
+                    {% if page_obj.has_previous %}
+                        <a href="?q={{ query|urlencode }}&page={{ page_obj.previous_page_number }}"
+                        class="btn btn-outline-primary">
+                            Anterior
+                        </a>
+                    {% else %}
+                        <span class="btn btn-outline-secondary disabled">
+                            Anterior
+                        </span>
+                    {% endif %}
 
                 </li>
 
@@ -327,14 +376,16 @@
 
                 <li class="page-item">
 
-                    <a class="page-link"
-                       href="?q={{ query }}&page={{ page_obj.next_page_number }}">
-
-                        Siguiente
-
-                        <i class="bi bi-chevron-right"></i>
-
-                    </a>
+                    {% if page_obj.has_next %}
+                        <a href="?q={{ query|urlencode }}&page={{ page_obj.next_page_number }}"
+                        class="btn btn-outline-primary">
+                            Siguiente
+                        </a>
+                    {% else %}
+                        <span class="btn btn-outline-secondary disabled">
+                            Siguiente
+                        </span>
+                    {% endif %}
 
                 </li>
 

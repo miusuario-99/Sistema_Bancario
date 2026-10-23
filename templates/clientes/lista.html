@@ -313,13 +313,22 @@ Inactivo
 
 </a>
 
-<a href="{% url 'eliminar_cliente' cliente.id %}"
-   class="btn btn-danger btn-sm btn-eliminar"
-   title="Eliminar">
+<form method="post"
+      action="{% url 'eliminar_cliente' cliente.id %}"
+      style="display: inline;">
 
-    <i class="bi bi-trash"></i>
+    {% csrf_token %}
 
-</a>
+    <button type="submit"
+            class="btn btn-danger btn-sm btn-eliminar"
+            title="Eliminar"
+            onclick="return confirm('¿Está seguro de eliminar este cliente?');">
+
+        <i class="bi bi-trash"></i>
+
+    </button>
+
+</form>
 
 </td>
 
@@ -409,54 +418,35 @@ Siguiente
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+document.querySelectorAll(".btn-eliminar").forEach(function(boton) {
 
-document.querySelectorAll(".btn-eliminar").forEach(function(boton){
-
-    boton.addEventListener("click", function(e){
+    boton.addEventListener("click", function(e) {
 
         e.preventDefault();
 
-        let url = this.href;
-
+        const formulario = this.closest("form");
 
         Swal.fire({
-
             title: "¿Eliminar cliente?",
-
             text: "Esta acción no se puede deshacer.",
-
             icon: "warning",
-
             showCancelButton: true,
-
             confirmButtonColor: "#d33",
-
             cancelButtonColor: "#6c757d",
-
             confirmButtonText: "Sí, eliminar",
-
             cancelButtonText: "Cancelar"
 
+        }).then((result) => {
 
-        }).then((result)=>{
-
-
-            if(result.isConfirmed){
-
-                window.location.href = url;
-
+            if (result.isConfirmed) {
+                formulario.submit();
             }
-
 
         });
 
-
     });
 
-
 });
-
-
 </script>
 
 {% endblock %}

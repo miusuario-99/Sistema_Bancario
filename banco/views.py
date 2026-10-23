@@ -14,8 +14,9 @@ from django.db.models import Sum, Count, Avg, Max, Min
 from django.db.models.functions import TruncDate
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from usuarios.decorators import grupos_permitidos
 
-
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def dashboard(request):
 
     total_clientes = Cliente.objects.count()
@@ -24,7 +25,7 @@ def dashboard(request):
     saldo_total = Cuenta.objects.aggregate(
         total=Sum("saldo")
     )["total"] or 0
-    
+
     fecha_inicio = request.GET.get("fecha_inicio")
     fecha_fin = request.GET.get("fecha_fin")
 
@@ -38,7 +39,7 @@ def dashboard(request):
 
     if fecha_fin:
         movimientos = movimientos.filter(fecha__date__lte=fecha_fin)
-    
+
     # ===========================
     # ESTADÍSTICAS
     # ===========================
@@ -77,7 +78,7 @@ def dashboard(request):
     # ===========================
     # GRÁFICO DE LÍNEAS
     # ===========================
-    
+
     # Datos para gráfico circular
 
     tipos_movimientos = (
@@ -121,7 +122,7 @@ def dashboard(request):
         float(item["total"])
     )
 
-      
+
     # ===========================
     # GRÁFICO DE BARRAS
     # Movimientos por mes
@@ -141,7 +142,7 @@ def dashboard(request):
     for item in movimientos_mes:
         meses.append(item["mes"].strftime("%b %Y"))
         totales_mes.append(float(item["total"]))
-    
+
     ultimos_movimientos = (
     movimientos.select_related("cuenta")
     .order_by("-fecha")[:5]
@@ -271,11 +272,12 @@ def dashboard(request):
         "totales_mes": totales_mes,
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin,
-       
+
     }
 
     return render(request, "dashboard.html", contexto)
-    
+
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def estado_cuenta(request):
 
     cuentas = Cuenta.objects.all()
@@ -287,7 +289,8 @@ def estado_cuenta(request):
             "cuentas": cuentas
         }
     )
-    
+
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def estado_cuenta_pdf(request, cuenta_id):
 
     cuenta = Cuenta.objects.get(id=cuenta_id)
@@ -471,7 +474,7 @@ def estado_cuenta_pdf(request, cuenta_id):
 
     # Posición inicial de la tabla
     y = y - 3.4 * cm
-    
+
     # ======================================================
     # TABLA DE MOVIMIENTOS
     # ======================================================
@@ -495,7 +498,7 @@ def estado_cuenta_pdf(request, cuenta_id):
     # ============================
 
     y -= 0.6 * cm
-    
+
     pdf.setFillColor(colors.HexColor("#0B3A75"))
 
     pdf.rect(
@@ -515,8 +518,8 @@ def estado_cuenta_pdf(request, cuenta_id):
     pdf.drawCentredString((x2+x3)/2, y+0.28*cm, "Tipo")
     pdf.drawCentredString((x3+x4)/2, y+0.28*cm, "Descripción")
     pdf.drawCentredString((x4+x5)/2, y+0.28*cm, "Monto")
-    pdf.drawCentredString((x5+x6)/2, y+0.28*cm, "Saldo")  
-    
+    pdf.drawCentredString((x5+x6)/2, y+0.28*cm, "Saldo")
+
     y -= 0.25 * cm
 
     pdf.line(
@@ -529,7 +532,7 @@ def estado_cuenta_pdf(request, cuenta_id):
     y -= 0.5 * cm
 
     pdf.setFont("Helvetica", 9)
-    
+
     y -= alto_fila
 
     # ============================
@@ -565,7 +568,7 @@ def estado_cuenta_pdf(request, cuenta_id):
             y + 0.28 * cm,
             tipo
         )
-        
+
         # ==========================
         # LIMPIAR LA DESCRIPCIÓN
         # ==========================
@@ -619,7 +622,7 @@ def estado_cuenta_pdf(request, cuenta_id):
         # LIMPIAR LA DESCRIPCIÓN
         # ==========================
 
-                    
+
     total_depositos = sum(m.monto for m in movimientos if m.tipo == "D")
     total_retiros = sum(m.monto for m in movimientos if m.tipo == "R")
     total_transferencias = sum(m.monto for m in movimientos if m.tipo == "T"
@@ -686,14 +689,14 @@ def estado_cuenta_pdf(request, cuenta_id):
 
     pdf.drawString(2.5 * cm, yy, "Total transferencias")
     pdf.drawRightString(10 * cm, yy, f"S/ {total_transferencias:,.2f}")
-        
+
     pdf.line(
         2 * cm,
         y,
         19 * cm,
         y
-    )           
-    
+    )
+
     # ============================
     # PIE DE PÁGINA
     # ============================
@@ -721,8 +724,8 @@ def estado_cuenta_pdf(request, cuenta_id):
         19 * cm,
         1.3 * cm,
         "Página 1"
-    )   
-    
+    )
+
     pdf.save()
     return response
 

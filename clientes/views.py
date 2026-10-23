@@ -13,12 +13,13 @@ from reportlab.lib import colors
 from auditoria.utils import registrar_auditoria
 from openpyxl.styles import PatternFill, Alignment
 from usuarios.decorators import grupos_permitidos
+from cuentas.models import Cuenta
 
 
 # ==========================
 # LISTAR CLIENTES
 # ==========================
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def lista_clientes(request):
 
     query = request.GET.get("q", "")
@@ -98,7 +99,7 @@ def nuevo_cliente(request):
 # ==========================
 # EDITAR CLIENTE
 # ==========================
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador")
 def editar_cliente(request, id):
 
     cliente = get_object_or_404(Cliente, id=id)
@@ -132,33 +133,58 @@ def editar_cliente(request, id):
 # ==========================
 # ELIMINAR CLIENTE
 # ==========================
-@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador")
 def eliminar_cliente(request, id):
+
+    if request.method != "POST":
+        messages.error(
+            request,
+            "La eliminación requiere una solicitud POST."
+        )
+        return redirect("lista_clientes")
 
     cliente = get_object_or_404(Cliente, id=id)
 
-    cliente.delete()
-    registrar_auditoria(
-    request,
-    "Clientes",
-    "Eliminar",
-    f"Cliente: {cliente.dni} - {cliente.nombres} {cliente.apellidos}"
+    # Proteger las cuentas bancarias y sus movimientos
+    if Cuenta.objects.filter(cliente=cliente).exists():
+        messages.error(
+            request,
+            "No se puede eliminar este cliente porque "
+            "tiene cuentas bancarias asociadas. "
+            "Debe conservarse su historial bancario."
+        )
+        return redirect("lista_clientes")
+
+    # Guardar los datos antes de eliminar
+    detalle_cliente = (
+        f"Cliente: {cliente.dni} - "
+        f"{cliente.nombres} {cliente.apellidos}"
     )
+
+    # Registrar la auditoría antes de eliminar
+    registrar_auditoria(
+        request,
+        "Clientes",
+        "Eliminar",
+        detalle_cliente
+    )
+
+    cliente.delete()
 
     messages.success(
         request,
-        "Cliente eliminado correctamente"
+        "Cliente eliminado correctamente."
     )
 
     return redirect("lista_clientes")
-    
+
     # ==========================
     # EXPORTAR CLIENTES A EXCEL
     # ==========================
 
-#@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def exportar_clientes_excel(request):
-
+    # Código existente de exportación Excel
     wb = Workbook()
 
     ws = wb.active
@@ -304,215 +330,306 @@ def exportar_clientes_excel(request):
 # EXPORTAR CLIENTES PDF
 # ==========================
 
-#@grupos_permitidos("Administrador", "Cajero")
+@grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def exportar_clientes_pdf(request):
+    import os
+    from datetime import datetime
 
+    from django.conf import settings
+    from django.http import HttpResponse
+
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
     from reportlab.platypus import (
         SimpleDocTemplate,
         Table,
         TableStyle,
         Paragraph,
         Spacer,
-        Image
+        Image,
     )
 
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib import colors
-    from django.conf import settings
-    from datetime import datetime
-    import os
-
-
-    response = HttpResponse(
-        content_type="application/pdf"
-    )
-
+    # Crear la respuesta PDF
+    response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
         'attachment; filename="clientes.pdf"'
     )
 
+    # Configurar documento A4 horizontal
     doc = SimpleDocTemplate(
         response,
-        pagesize=letter
+        pagesize=landscape(A4),
+        rightMargin=12 * mm,
+        leftMargin=12 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
     )
 
     elementos = []
-
     estilos = getSampleStyleSheet()
 
-    # ==========================
-    # LOGO
-    # ==========================
+    # Estilos del encabezado
+    estilo_titulo = ParagraphStyle(
+        "TituloBanco",
+        parent=estilos["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=19,
+        leading=23,
+        textColor=colors.HexColor("#0B3A75"),
+        alignment=TA_CENTER,
+        spaceAfter=5,
+    )
 
+    estilo_subtitulo = ParagraphStyle(
+        "SubtituloReporte",
+        parent=estilos["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        alignment=TA_CENTER,
+        spaceAfter=8,
+    )
+
+    estilo_celda = ParagraphStyle(
+        "CeldaReporte",
+        parent=estilos["Normal"],
+        fontName="Helvetica",
+        fontSize=8,
+        leading=10,
+        wordWrap="CJK",
+    )
+
+    estilo_encabezado = ParagraphStyle(
+        "EncabezadoTabla",
+        parent=estilo_celda,
+        fontName="Helvetica-Bold",
+        textColor=colors.white,
+        alignment=TA_CENTER,
+    )
+
+    # Logo, si existe
     ruta_logo = os.path.join(
         settings.BASE_DIR,
         "static",
         "img",
-        "logo_banco.png"
+        "logo_banco.png",
     )
 
     if os.path.exists(ruta_logo):
-
         logo = Image(
             ruta_logo,
-            width=90,
-            height=90
+            width=22 * mm,
+            height=22 * mm,
+            kind="proportional",
         )
-
+        logo.hAlign = "CENTER"
         elementos.append(logo)
+        elementos.append(Spacer(1, 4 * mm))
 
+    # Títulos y fecha
     elementos.append(
-        Spacer(1, 10)
+        Paragraph("BANCO PYTHON", estilo_titulo)
     )
 
-
-    # ==========================
-    # TITULO
-    # ==========================
-
     elementos.append(
-
         Paragraph(
-            "Banco Python",
-            estilos["Title"]
+            "Sistema de Gestión Bancaria",
+            estilo_subtitulo,
         )
-
     )
 
-
     elementos.append(
-
         Paragraph(
-            "Reporte General de Clientes",
-            estilos["Heading2"]
+            "REPORTE GENERAL DE CLIENTES",
+            estilo_subtitulo,
         )
-
     )
 
-
-    fecha = datetime.now().strftime(
-        "%d/%m/%Y %H:%M"
-    )
-
+    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     elementos.append(
-
         Paragraph(
-            f"Fecha de emisión: {fecha}",
-            estilos["Normal"]
+            f"<b>Fecha de emisión:</b> {fecha}",
+            estilos["Normal"],
         )
-
     )
 
+    elementos.append(Spacer(1, 7 * mm))
 
-    elementos.append(
-        Spacer(1,20)
-    )
-
-
-    # ==========================
-    # TABLA
-    # ==========================
-
-    datos = [
-
-        [
-            "N°",
-            "DNI",
-            "Nombres",
-            "Apellidos",
-            "Teléfono",
-            "Estado"
-        ]
-
+    # Encabezados de la tabla
+    encabezados = [
+        "N.º",
+        "DNI",
+        "Nombres",
+        "Apellidos",
+        "Teléfono",
+        "Correo",
+        "Estado",
     ]
 
+    datos = [
+        [Paragraph(texto, estilo_encabezado)
+         for texto in encabezados]
+    ]
 
+    # Obtener clientes ordenados
     clientes = Cliente.objects.all().order_by(
-        "apellidos"
+        "apellidos",
+        "nombres",
     )
 
-
-    contador = 1
-
-
-    for cliente in clientes:
-
-        datos.append([
-
-            contador,
-            cliente.dni,
-            cliente.nombres,
-            cliente.apellidos,
-            cliente.telefono,
-            "Activo" if cliente.estado == "A"
+    for numero, cliente in enumerate(clientes, start=1):
+        estado = (
+            "Activo"
+            if cliente.estado == "A"
             else "Inactivo"
+        )
 
-        ])
+        fila = [
+            str(numero),
+            str(cliente.dni),
+            Paragraph(
+                str(cliente.nombres),
+                estilo_celda,
+            ),
+            Paragraph(
+                str(cliente.apellidos),
+                estilo_celda,
+            ),
+            str(cliente.telefono),
+            Paragraph(
+                str(cliente.correo),
+                estilo_celda,
+            ),
+            estado,
+        ]
 
-        contador += 1
+        datos.append(fila)
+
+    # Anchos adaptados a A4 horizontal
+    anchos = [
+        12 * mm,
+        22 * mm,
+        34 * mm,
+        42 * mm,
+        25 * mm,
+        65 * mm,
+        22 * mm,
+    ]
 
     tabla = Table(
         datos,
-        repeatRows=1
+        colWidths=anchos,
+        repeatRows=1,
+        hAlign="CENTER",
     )
 
-    tabla.setStyle(
+    # Estilos de la tabla
+    estilos_tabla = [
+        (
+            "BACKGROUND",
+            (0, 0),
+            (-1, 0),
+            colors.HexColor("#0B3A75"),
+        ),
+        (
+            "TEXTCOLOR",
+            (0, 0),
+            (-1, 0),
+            colors.white,
+        ),
+        (
+            "GRID",
+            (0, 0),
+            (-1, -1),
+            0.5,
+            colors.HexColor("#B8C7D9"),
+        ),
+        (
+            "VALIGN",
+            (0, 0),
+            (-1, -1),
+            "MIDDLE",
+        ),
+        (
+            "ALIGN",
+            (0, 0),
+            (1, -1),
+            "CENTER",
+        ),
+        (
+            "ALIGN",
+            (4, 1),
+            (4, -1),
+            "CENTER",
+        ),
+        (
+            "ALIGN",
+            (6, 1),
+            (6, -1),
+            "CENTER",
+        ),
+        (
+            "LEFTPADDING",
+            (0, 0),
+            (-1, -1),
+            5,
+        ),
+        (
+            "RIGHTPADDING",
+            (0, 0),
+            (-1, -1),
+            5,
+        ),
+        (
+            "TOPPADDING",
+            (0, 0),
+            (-1, -1),
+            7,
+        ),
+        (
+            "BOTTOMPADDING",
+            (0, 0),
+            (-1, -1),
+            7,
+        ),
+    ]
 
-        TableStyle([
-
-            (
-                "BACKGROUND",
-                (0,0),
-                (-1,0),
-                colors.darkblue
-            ),
-
-            (
-                "TEXTCOLOR",
-                (0,0),
-                (-1,0),
-                colors.white
-            ),
-
-            (
-                "GRID",
-                (0,0),
-                (-1,-1),
-                0.5,
-                colors.grey
-            ),
-
-            (
-                "ALIGN",
-                (0,0),
-                (-1,-1),
-                "CENTER"
+    # Alternar colores de las filas
+    for fila in range(1, len(datos)):
+        if fila % 2 == 0:
+            estilos_tabla.append(
+                (
+                    "BACKGROUND",
+                    (0, fila),
+                    (-1, fila),
+                    colors.HexColor("#EAF1F8"),
+                )
+            )
+        else:
+            estilos_tabla.append(
+                (
+                    "BACKGROUND",
+                    (0, fila),
+                    (-1, fila),
+                    colors.white,
+                )
             )
 
-        ])
-
-    )
-
+    tabla.setStyle(TableStyle(estilos_tabla))
 
     elementos.append(tabla)
+    elementos.append(Spacer(1, 8 * mm))
 
-    # ==========================
-    # PIE
-    # ==========================
-
+    # Pie del documento
     elementos.append(
-        Spacer(1,30)
-    )
-
-    elementos.append(
-
         Paragraph(
-            "Banco Python © 2026 - Sistema Bancario Administrativo",
-            estilos["Normal"]
+            "Banco Python - Sistema Bancario Administrativo",
+            estilos["Normal"],
         )
-
     )
 
     doc.build(elementos)

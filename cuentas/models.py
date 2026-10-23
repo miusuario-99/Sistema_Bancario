@@ -1,20 +1,21 @@
 from django.db import models
+from django.db.models import Q
 from clientes.models import Cliente
 
 
 class Cuenta(models.Model):
 
     TIPO_CUENTA = [
-        ('AH', 'Ahorros'),
-        ('CC', 'Cuenta Corriente'),
+        ("AH", "Ahorros"),
+        ("CC", "Cuenta Corriente"),
     ]
 
     ESTADO = [
-        ('A', 'Activa'),
-        ('I', 'Inactiva'),
+        ("A", "Activa"),
+        ("I", "Inactiva"),
     ]
 
-    numero_cuenta = models.CharField(  
+    numero_cuenta = models.CharField(
         max_length=10,
         unique=True
     )
@@ -22,7 +23,7 @@ class Cuenta(models.Model):
     cliente = models.ForeignKey(
         Cliente,
         on_delete=models.CASCADE,
-        related_name='cuentas'
+        related_name="cuentas"
     )
 
     tipo_cuenta = models.CharField(
@@ -43,8 +44,16 @@ class Cuenta(models.Model):
     estado = models.CharField(
         max_length=1,
         choices=ESTADO,
-        default='A'
+        default="A"
     )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(saldo__gte=0),
+                name="cuenta_saldo_no_negativo"
+            )
+        ]
 
     def __str__(self):
         return f"{self.numero_cuenta} - {self.cliente}"

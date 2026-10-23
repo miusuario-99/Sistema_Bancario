@@ -14,7 +14,7 @@ from reportlab.platypus import (
 )
 
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 
 from django.conf import settings
@@ -22,33 +22,45 @@ from datetime import datetime
 import os
 
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment
+from openpyxl.styles import Alignment, Border, Side, PatternFill
 from usuarios.decorators import grupos_permitidos
+from copy import copy
 
 @grupos_permitidos("Administrador", "Supervisor")
 def lista_auditoria(request):
 
-    query = request.GET.get("q", "")
+    query = request.GET.get("q", "").strip()
+    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
+    fecha_fin = request.GET.get("fecha_fin", "").strip()
 
     auditorias = Auditoria.objects.select_related(
         "usuario"
     ).order_by("-fecha")
 
+    # FILTRO POR TEXTO
     if query:
-
         auditorias = auditorias.filter(
-
             Q(usuario__username__icontains=query) |
             Q(modulo__icontains=query) |
             Q(accion__icontains=query) |
             Q(descripcion__icontains=query)
+        )
 
+    # FILTRO POR FECHA DE INICIO
+    if fecha_inicio:
+        auditorias = auditorias.filter(
+            fecha__date__gte=fecha_inicio
+        )
+
+    # FILTRO POR FECHA DE FIN
+    if fecha_fin:
+        auditorias = auditorias.filter(
+            fecha__date__lte=fecha_fin
         )
 
     paginator = Paginator(auditorias, 10)
 
     page_number = request.GET.get("page")
-
     page_obj = paginator.get_page(page_number)
 
     return render(
@@ -57,9 +69,10 @@ def lista_auditoria(request):
         {
             "page_obj": page_obj,
             "query": query,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
         }
     )
-    
 # ==========================
 # EXPORTAR AUDITORÍA PDF
 # ==========================
@@ -77,11 +90,11 @@ def exportar_auditoria_pdf(request):
 
     doc = SimpleDocTemplate(
         response,
-        pagesize=letter,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=40,
-        bottomMargin=40,
+        pagesize=landscape(A4),
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=30,
+        bottomMargin=30,
     )
 
     elementos = []
@@ -163,11 +176,33 @@ def exportar_auditoria_pdf(request):
         "Fecha",
     ]]
 
+    query = request.GET.get("q", "").strip()
+    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
+    fecha_fin = request.GET.get("fecha_fin", "").strip()
+
     auditorias = (
         Auditoria.objects
         .select_related("usuario")
         .order_by("-fecha")
     )
+
+    if query:
+        auditorias = auditorias.filter(
+            Q(usuario__username__icontains=query) |
+            Q(modulo__icontains=query) |
+            Q(accion__icontains=query) |
+            Q(descripcion__icontains=query)
+        )
+
+    if fecha_inicio:
+        auditorias = auditorias.filter(
+            fecha__date__gte=fecha_inicio
+        )
+
+    if fecha_fin:
+        auditorias = auditorias.filter(
+            fecha__date__lte=fecha_fin
+        )
 
     for numero, registro in enumerate(
         auditorias,
@@ -181,22 +216,19 @@ def exportar_auditoria_pdf(request):
         )
 
         datos.append([
-
-            str(numero),
-
-            usuario,
-
-            registro.modulo,
-
-            registro.accion,
-
-            registro.descripcion or "",
-
-            registro.fecha.strftime(
-                "%d/%m/%Y %H:%M"
-            ),
-
-        ])
+        str(numero),
+        Paragraph(usuario, estilos["Normal"]),
+        Paragraph(registro.modulo or "", estilos["Normal"]),
+        Paragraph(registro.accion or "", estilos["Normal"]),
+        Paragraph(
+            (registro.descripcion or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"),
+            estilos["Normal"]
+        ),
+        Paragraph(
+            registro.fecha.strftime("%d/%m/%Y %H:%M"),
+            estilos["Normal"]
+        ),
+    ])
 
     # ============================
     # TABLA
@@ -206,13 +238,14 @@ def exportar_auditoria_pdf(request):
         datos,
         repeatRows=1,
         colWidths=[
-            30,
-            70,
-            65,
-            85,
-            160,
-            85,
-        ]
+            30,   # N.º
+            90,   # Usuario
+            90,   # Módulo
+            105,  # Acción
+            300,  # Descripción
+            100,  # Fecha
+        ],
+        hAlign="CENTER",
     )
 
     tabla.setStyle(
@@ -239,12 +272,7 @@ def exportar_auditoria_pdf(request):
                 "Helvetica-Bold"
             ),
 
-            (
-                "FONTSIZE",
-                (0, 0),
-                (-1, -1),
-                7
-            ),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
 
             (
                 "GRID",
@@ -286,14 +314,14 @@ def exportar_auditoria_pdf(request):
                 "BOTTOMPADDING",
                 (0, 0),
                 (-1, 0),
-                8
+                5
             ),
 
             (
                 "TOPPADDING",
                 (0, 0),
                 (-1, 0),
-                8
+                5
             ),
 
         ])
@@ -347,11 +375,36 @@ def exportar_auditoria_excel(request):
     # AUDITORÍA
     # ============================
 
+    query = request.GET.get("q", "").strip()
+    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
+    fecha_fin = request.GET.get("fecha_fin", "").strip()
+
     auditorias = (
         Auditoria.objects
         .select_related("usuario")
         .order_by("-fecha")
     )
+
+    # FILTRO POR TEXTO
+    if query:
+        auditorias = auditorias.filter(
+            Q(usuario__username__icontains=query) |
+            Q(modulo__icontains=query) |
+            Q(accion__icontains=query) |
+            Q(descripcion__icontains=query)
+        )
+
+    # FILTRO POR FECHA DE INICIO
+    if fecha_inicio:
+        auditorias = auditorias.filter(
+            fecha__date__gte=fecha_inicio
+        )
+
+    # FILTRO POR FECHA DE FIN
+    if fecha_fin:
+        auditorias = auditorias.filter(
+            fecha__date__lte=fecha_fin
+        )
 
     for numero, registro in enumerate(
         auditorias,
@@ -388,9 +441,19 @@ def exportar_auditoria_excel(request):
 
     for celda in ws[1]:
 
-        celda.font = celda.font.copy(
-            bold=True,
-            color="FFFFFF"
+        fuente = copy(celda.font)
+        fuente.bold = True
+        fuente.color = "FFFFFF"
+        celda.font = fuente
+
+        celda.fill = PatternFill(
+            fill_type="solid",
+            fgColor="0B3A75"
+        )
+
+        celda.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
         )
 
         celda.fill = PatternFill(
@@ -402,6 +465,26 @@ def exportar_auditoria_excel(request):
             horizontal="center",
             vertical="center"
         )
+
+    # ESTILO DE LOS DATOS
+    # ============================
+
+    for fila in ws.iter_rows(min_row=2):
+
+        for celda in fila:
+            celda.alignment = Alignment(
+                vertical="top",
+                wrap_text=True
+            )
+
+            celda.border = Border(
+                bottom=Side(
+                    style="thin",
+                    color="D9E2F3"
+                )
+            )
+
+    ws.row_dimensions[1].height = 25
 
     # ============================
     # ANCHO DE COLUMNAS

@@ -33,8 +33,8 @@ INSTALLED_APPS = [
     'movimientos',
     'usuarios',
     'reportes',
-    "auditoria",
-    
+    "auditoria.apps.AuditoriaConfig",
+
 ]
 
 MIDDLEWARE = [
@@ -133,6 +133,46 @@ LOGIN_REDIRECT_URL = "dashboard"
 
 LOGOUT_REDIRECT_URL = "login"
 
+# Configuración de registros (logging)
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
-
-
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "detallado": {
+            "format": (
+                "{asctime} {levelname} "
+                "{name}: {message}"
+            ),
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "archivo": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": LOG_DIR / "django.log",
+            "encoding": "utf-8",
+            "formatter": "detallado",
+        },
+        "consola": {
+            "level": "ERROR",
+            "class": "logging.StreamHandler",
+            "formatter": "detallado",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["archivo", "consola"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "auditoria.signals": {
+            "handlers": ["archivo", "consola"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

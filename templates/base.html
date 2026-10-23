@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
     <link rel="stylesheet" href="{% static 'css/tables.css' %}">
-    
+
 </head>
 
 <body>
@@ -63,11 +63,11 @@
             class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i class="bi bi-speedometer2 me-2"></i>
             Dashboard
-        </a>    
+        </a>
 
 <!-- ADMINISTRADOR -->
 
-{% if user|tiene_grupo:"Administrador" %}
+{% if request.user|tiene_grupo:"Administrador" %}
 
     <a href="{% url 'lista_clientes' %}"
        class="{% if request.resolver_match.url_name == 'lista_clientes' %}active{% endif %}">
@@ -105,12 +105,17 @@
         Historial
     </a>
 
-{% endif %}
+    <a href="{% url 'lista_usuarios' %}"
+       class="{% if request.resolver_match.url_name == 'lista_usuarios' or request.resolver_match.url_name == 'crear_usuario' or request.resolver_match.url_name == 'cambiar_estado_usuario' %}active{% endif %}">
+        <i class="bi bi-person-gear me-2"></i>
+        Usuarios
+    </a>
 
+{% endif %}
 
 <!-- REPORTES Y AUDITORÍA -->
 
-{% if user|tiene_grupo:"Administrador" or user|tiene_grupo:"Supervisor" %}
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Supervisor" %}
 
     <a href="{% url 'reportes' %}"
        class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
@@ -119,7 +124,6 @@
         Reportes
 
     </a>
-
 
     <a href="{% url 'lista_auditoria' %}"
        class="{% if request.resolver_match.url_name == 'lista_auditoria' %}active{% endif %}">
@@ -135,7 +139,6 @@
 
 {% if user|tiene_grupo:"Cajero" %}
 
-
 <a href="{% url 'lista_clientes' %}">
 
 <i class="bi bi-people-fill"></i>
@@ -144,7 +147,7 @@ Clientes
 
 </a>
 
-<a href="#">
+<a href="{% url 'lista_cuentas' %}">
 
 <i class="bi bi-credit-card"></i>
 
@@ -235,7 +238,6 @@ Historial
 
         </div>
 
-
         <!-- USUARIO -->
 
         <div class="d-flex align-items-center">
@@ -294,7 +296,7 @@ Historial
 
     {% for message in messages %}
 
-        <div class="alert 
+        <div class="alert
             {% if message.tags == 'success' %}
                 alert-success
             {% elif message.tags == 'error' %}
@@ -305,7 +307,7 @@ Historial
             alert-dismissible fade show shadow-sm"
             role="alert">
 
-            <i class="bi 
+            <i class="bi
             {% if message.tags == 'success' %}
                 bi-check-circle-fill
             {% elif message.tags == 'error' %}
