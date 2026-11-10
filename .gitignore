@@ -41,3 +41,6 @@ estructura.txt
 # Respaldos locales del proyecto
 *_backup.py
 *_antes_*.py
+
+# Configuración local de pruebas de concurrencia
+banco/settings_concurrencia.py

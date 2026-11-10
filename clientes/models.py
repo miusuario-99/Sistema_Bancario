@@ -1,6 +1,5 @@
 from django.db import models
 from django.core.validators import RegexValidator
-from django.db.models.functions import Lower
 
 class Cliente(models.Model):
     ESTADO = [
@@ -42,8 +41,8 @@ class Cliente(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                Lower('correo'),
-                name='unique_correo_cliente_lower'
+                fields=['correo'],
+                name='unique_correo_cliente'
             )
         ]
 

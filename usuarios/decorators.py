@@ -11,6 +11,11 @@ def grupos_permitidos(*grupos):
         @login_required
         def wrapper(request, *args, **kwargs):
 
+            # Permitir acceso a los superusuarios
+            if request.user.is_superuser:
+                return vista(request, *args, **kwargs)
+
+            # Verificar pertenencia al grupo autorizado
             if request.user.groups.filter(
                 name__in=grupos
             ).exists():

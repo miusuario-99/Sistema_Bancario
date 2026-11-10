@@ -45,6 +45,26 @@ class SeguridadUsuariosTests(TestCase):
         respuesta = self.client.get(reverse("lista_usuarios"))
 
         self.assertEqual(respuesta.status_code, 200)
+        
+    def test_superusuario_puede_ver_lista_sin_pertenecer_al_grupo(self):
+        superusuario = User.objects.create_superuser(
+            username="superusuario_test",
+            email="superusuario_test@example.com",
+            password="PruebaSegura123!",
+        )
+
+        self.client.force_login(superusuario)
+
+        respuesta = self.client.get(reverse("lista_usuarios"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        
+    def test_usuario_sin_grupo_no_puede_ver_lista(self):
+        self.client.force_login(self.usuario_objetivo)
+
+        respuesta = self.client.get(reverse("lista_usuarios"))
+
+        self.assertEqual(respuesta.status_code, 403)
 
     def test_cajero_no_puede_ver_lista(self):
         self.client.force_login(self.cajero)
@@ -268,8 +288,18 @@ class SeguridadUsuariosTests(TestCase):
         )
 
     def test_no_se_puede_desactivar_al_ultimo_administrador(self):
-        self.client.force_login(self.admin)
+        # Crear un segundo administrador inactivo
+        otro_admin = User.objects.create_user(
+            username="otro_admin_test",
+            password="PruebaSegura123!",
+            is_active=False,
+        )
+        otro_admin.groups.add(self.grupo_admin)
 
+        # Autenticar al segundo administrador
+        self.client.force_login(otro_admin)
+
+        # Intentar desactivar al único administrador activo
         respuesta = self.client.post(
             reverse(
                 "cambiar_estado_usuario",
