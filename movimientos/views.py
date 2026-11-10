@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from cuentas.models import Cuenta
-from .models import Movimiento
+from .models import Movimiento, OperacionBancaria
+import uuid
 from decimal import Decimal, InvalidOperation
 from django.http import HttpResponse
 from reportlab.pdfgen import canvas
@@ -16,12 +17,23 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from usuarios.decorators import grupos_permitidos
 from auditoria.utils import registrar_auditoria
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 @grupos_permitidos("Administrador", "Cajero")
 def deposito(request):
 
     if request.method == "POST":
+
+        try:
+            idempotency_key = uuid.UUID(
+                request.POST.get("idempotency_key", "")
+            )
+        except (ValueError, TypeError, AttributeError):
+            messages.error(
+                request,
+                "Identificador de operación inválido. Recargue el formulario."
+            )
+            return redirect("deposito")
 
         numero_cuenta = request.POST.get("numero_cuenta", "").strip()
         monto_texto = request.POST.get("monto", "").strip()
@@ -95,12 +107,19 @@ def deposito(request):
                     )
                     return redirect("deposito")
 
+                operacion = OperacionBancaria.objects.create(
+                    idempotency_key=idempotency_key,
+                    usuario=request.user,
+                    tipo="D"
+                )
+
                 saldo_anterior = cuenta.saldo
                 cuenta.saldo += monto
                 cuenta.save(update_fields=["saldo"])
 
                 Movimiento.objects.create(
                     cuenta=cuenta,
+                    operacion=operacion,
                     tipo='D',
                     monto=monto,
                     saldo_anterior=saldo_anterior,
@@ -121,12 +140,45 @@ def deposito(request):
         except Cuenta.DoesNotExist:
             messages.error(request, "La cuenta no existe.")
 
-    return render(request, "movimientos/deposito.html")
+        except IntegrityError:
+            operacion_existente = OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key,
+                usuario=request.user,
+                tipo="D"
+            ).exists()
+
+            if operacion_existente:
+                messages.warning(
+                    request,
+                    "Este depósito ya fue procesado. No se realizó otro depósito."
+                )
+                return redirect("deposito")
+            else:
+                raise
+
+    return render(
+        request,
+        "movimientos/deposito.html",
+        {
+            "idempotency_key": uuid.uuid4()
+        }
+    )
 
 @grupos_permitidos("Administrador", "Cajero")
 def retiro(request):
 
     if request.method == "POST":
+
+        try:
+            idempotency_key = uuid.UUID(
+                request.POST.get("idempotency_key", "")
+            )
+        except (ValueError, TypeError, AttributeError):
+            messages.error(
+                request,
+                "Identificador de operación inválido. Recargue el formulario."
+            )
+            return redirect("retiro")
 
         numero_cuenta = (
             request.POST.get("numero_cuenta", "").strip()
@@ -208,6 +260,13 @@ def retiro(request):
                     )
                     return redirect("retiro")
 
+                # Registrar la operación única
+                operacion = OperacionBancaria.objects.create(
+                    idempotency_key=idempotency_key,
+                    usuario=request.user,
+                    tipo="R"
+                )
+
                 # Guardar el saldo anterior
                 saldo_anterior = cuenta.saldo
 
@@ -218,6 +277,7 @@ def retiro(request):
                 # Registrar el movimiento
                 Movimiento.objects.create(
                     cuenta=cuenta,
+                    operacion=operacion,
                     tipo="R",
                     monto=monto,
                     saldo_anterior=saldo_anterior,
@@ -243,17 +303,45 @@ def retiro(request):
                 return redirect("retiro")
 
         except Cuenta.DoesNotExist:
-            messages.error(
-                request,
-                "La cuenta no existe."
-            )
+            messages.error(request, "La cuenta no existe.")
 
-    return render(request, "movimientos/retiro.html")
+        except IntegrityError:
+            operacion_existente = OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key,
+                usuario=request.user,
+                tipo="R"
+            ).exists()
+
+            if operacion_existente:
+                messages.warning(
+                    request,
+                    "Este retiro ya fue procesado. No se realizó otro retiro."
+                )
+                return redirect("retiro")
+            else:
+                raise
+
+    return render(
+        request,
+        "movimientos/retiro.html",
+        {"idempotency_key": uuid.uuid4()}
+    )
 
 @grupos_permitidos("Administrador", "Cajero")
 def transferencia(request):
 
     if request.method == "POST":
+
+        try:
+            idempotency_key = uuid.UUID(
+                request.POST.get("idempotency_key", "")
+            )
+        except (ValueError, TypeError, AttributeError):
+            messages.error(
+                request,
+                "Identificador de operación inválido. Recargue el formulario."
+            )
+            return redirect("transferencia")
 
         origen_num = request.POST.get("origen", "").strip()
         destino_num = request.POST.get("destino", "").strip()
@@ -349,11 +437,9 @@ def transferencia(request):
                     return redirect("transferencia")
 
                 # 5. Verificar el saldo de origen
+
                 if origen.saldo < monto:
-                    messages.error(
-                        request,
-                        "Saldo insuficiente en la cuenta origen."
-                    )
+                    messages.error(request, "Saldo insuficiente en la cuenta origen.")
                     return redirect("transferencia")
 
                 # Verificar que el saldo destino no supere el máximo permitido
@@ -366,6 +452,13 @@ def transferencia(request):
                     )
                     return redirect("transferencia")
 
+                # Registrar una única operación de transferencia
+                operacion = OperacionBancaria.objects.create(
+                    idempotency_key=idempotency_key,
+                    usuario=request.user,
+                    tipo="T"
+                )
+
                 # 6. Descontar el monto de la cuenta origen
                 saldo_origen_anterior = origen.saldo
                 origen.saldo -= monto
@@ -373,6 +466,7 @@ def transferencia(request):
 
                 Movimiento.objects.create(
                     cuenta=origen,
+                    operacion=operacion,
                     tipo="T",
                     monto=monto,
                     saldo_anterior=saldo_origen_anterior,
@@ -389,6 +483,7 @@ def transferencia(request):
 
                 Movimiento.objects.create(
                     cuenta=destino,
+                    operacion=operacion,
                     tipo="T",
                     monto=monto,
                     saldo_anterior=saldo_destino_anterior,
@@ -422,7 +517,27 @@ def transferencia(request):
                 "La cuenta de origen o destino no existe."
             )
 
-    return render(request, "movimientos/transferencia.html")
+        except IntegrityError:
+            operacion_existente = OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key,
+                usuario=request.user,
+                tipo="T"
+            ).exists()
+
+            if operacion_existente:
+                messages.warning(
+                    request,
+                    "Esta transferencia ya fue procesada. No se realizó otra transferencia."
+                )
+                return redirect("transferencia")
+            else:
+                raise
+
+    return render(
+        request,
+        "movimientos/transferencia.html",
+        {"idempotency_key": uuid.uuid4()}
+    )
 
 @grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def historial(request):
@@ -742,8 +857,11 @@ def reporte_movimientos_pdf(request):
     ).aggregate(total=Sum("monto"))["total"] or 0
 
     total_transferencias = movimientos.filter(
-        tipo="T"
-    ).aggregate(total=Sum("monto"))["total"] or 0
+        tipo="T",
+        descripcion__startswith="Transferencia a "
+    ).aggregate(
+        total=Sum("monto")
+    )["total"] or 0
 
     # Si no hay espacio para el resumen, iniciar una página
     # nueva SIN dibujar el encabezado de la tabla.
@@ -910,18 +1028,30 @@ def reporte_movimientos_excel(request):
 
         fila += 1
 
-    # Totales por tipo de movimiento.
-    total_depositos = movimientos.filter(
-        tipo="D"
-    ).aggregate(total=Sum("monto"))["total"] or 0
+    # Totales por tipo de movimiento en una sola consulta.
+    totales = movimientos.aggregate(
+        total_depositos=Sum(
+            "monto",
+            filter=Q(tipo="D")
+        ),
+        total_retiros=Sum(
+            "monto",
+            filter=Q(tipo="R")
+        ),
+        total_transferencias=Sum(
+            "monto",
+            filter=Q(
+                tipo="T",
+                descripcion__startswith="Transferencia a "
+            )
+        )
+    )
 
-    total_retiros = movimientos.filter(
-        tipo="R"
-    ).aggregate(total=Sum("monto"))["total"] or 0
-
-    total_transferencias = movimientos.filter(
-        tipo="T"
-    ).aggregate(total=Sum("monto"))["total"] or 0
+    total_depositos = totales["total_depositos"] or Decimal("0.00")
+    total_retiros = totales["total_retiros"] or Decimal("0.00")
+    total_transferencias = (
+        totales["total_transferencias"] or Decimal("0.00")
+    )
 
     # Resumen al final.
     fila_resumen = fila + 1
@@ -942,6 +1072,7 @@ def reporte_movimientos_excel(request):
         end_row=fila_resumen,
         end_column=4
     )
+
 
     resumen = [
         ("Total de movimientos:", movimientos.count()),

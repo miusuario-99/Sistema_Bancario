@@ -161,29 +161,58 @@ Clientes Inactivos
 
 <form method="GET">
 
-<div class="input-group">
+    <div class="row g-2">
 
-<span class="input-group-text">
+        <!-- Búsqueda de clientes -->
+        <div class="col-md-6">
+            <div class="input-group">
 
-<i class="bi bi-search"></i>
+                <span class="input-group-text">
+                    <i class="bi bi-search"></i>
+                </span>
 
-</span>
+                <input type="text"
+                       name="q"
+                       value="{{ query }}"
+                       class="form-control"
+                       placeholder="Buscar por DNI, nombres o apellidos">
 
-<input type="text"
-       name="q"
-       value="{{ query }}"
-       class="form-control"
-       placeholder="Buscar por DNI, nombres o apellidos">
+            </div>
+        </div>
 
-<button class="btn btn-dark">
+        <!-- Filtro por estado -->
+        <div class="col-md-3">
+            <select name="estado" class="form-select">
 
-<i class="bi bi-search"></i>
+                <option value="todos"
+                    {% if estado == "todos" %}selected{% endif %}>
+                    Todos los clientes
+                </option>
 
-Buscar
+                <option value="activos"
+                    {% if estado == "activos" %}selected{% endif %}>
+                    Solo activos
+                </option>
 
-</button>
+                <option value="inactivos"
+                    {% if estado == "inactivos" %}selected{% endif %}>
+                    Solo inactivos
+                </option>
 
-</div>
+            </select>
+        </div>
+
+        <!-- Botón de búsqueda -->
+        <div class="col-md-3">
+
+            <button type="submit" class="btn btn-dark w-100">
+                <i class="bi bi-search"></i>
+                Buscar
+            </button>
+
+        </div>
+
+    </div>
 
 </form>
 
@@ -224,7 +253,7 @@ Buscar
 <div class="table-responsive">
 
 <table class="table table-hover align-middle">
-    
+
 <thead class="table-dark">
 
 <tr>
@@ -305,30 +334,29 @@ Inactivo
 
 <td class="text-center">
 
-<a href="{% url 'editar_cliente' cliente.id %}"
-   class="btn btn-warning btn-sm"
-   title="Editar">
+    <!-- Botón para editar el cliente -->
+    <a href="{% url 'editar_cliente' cliente.id %}"
+       class="btn btn-warning btn-sm"
+       title="Editar cliente">
+        <i class="bi bi-pencil-square"></i>
+    </a>
 
-<i class="bi bi-pencil-square"></i>
+    <!-- Botón para desactivar clientes activos -->
+    {% if cliente.estado == "A" %}
+    <form method="post"
+          action="{% url 'eliminar_cliente' cliente.id %}"
+          style="display: inline;">
 
-</a>
+        {% csrf_token %}
 
-<form method="post"
-      action="{% url 'eliminar_cliente' cliente.id %}"
-      style="display: inline;">
+        <button type="submit"
+                class="btn btn-warning btn-sm btn-eliminar"
+                title="Desactivar cliente">
+            <i class="bi bi-person-dash"></i>
+        </button>
 
-    {% csrf_token %}
-
-    <button type="submit"
-            class="btn btn-danger btn-sm btn-eliminar"
-            title="Eliminar"
-            onclick="return confirm('¿Está seguro de eliminar este cliente?');">
-
-        <i class="bi bi-trash"></i>
-
-    </button>
-
-</form>
+    </form>
+    {% endif %}
 
 </td>
 
@@ -363,49 +391,37 @@ No hay clientes registrados
 
 <nav class="mt-4">
 
-<ul class="pagination justify-content-center">
+    <ul class="pagination justify-content-center">
 
-{% if page_obj.has_previous %}
+        {% if page_obj.has_previous %}
+        <li class="page-item">
 
-<li class="page-item">
+            <a class="page-link"
+               href="?page={{ page_obj.previous_page_number }}&q={{ query|urlencode }}&estado={{ estado|urlencode }}">
+                Anterior
+            </a>
 
-<a class="page-link"
-href="?page={{ page_obj.previous_page_number }}&q={{ query }}">
+        </li>
+        {% endif %}
 
-Anterior
+        <li class="page-item active">
+            <span class="page-link">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
 
-</a>
+        {% if page_obj.has_next %}
+        <li class="page-item">
 
-</li>
+            <a class="page-link"
+               href="?page={{ page_obj.next_page_number }}&q={{ query|urlencode }}&estado={{ estado|urlencode }}">
+                Siguiente
+            </a>
 
-{% endif %}
+        </li>
+        {% endif %}
 
-<li class="page-item active">
-
-<span class="page-link">
-
-Página {{ page_obj.number }}
-
-</span>
-
-</li>
-
-{% if page_obj.has_next %}
-
-<li class="page-item">
-
-<a class="page-link"
-href="?page={{ page_obj.next_page_number }}&q={{ query }}">
-
-Siguiente
-
-</a>
-
-</li>
-
-{% endif %}
-
-</ul>
+    </ul>
 
 </nav>
 
@@ -427,19 +443,18 @@ document.querySelectorAll(".btn-eliminar").forEach(function(boton) {
         const formulario = this.closest("form");
 
         Swal.fire({
-            title: "¿Eliminar cliente?",
-            text: "Esta acción no se puede deshacer.",
+            title: "¿Desactivar cliente?",
+            text: "El cliente pasará a estado inactivo y sus datos se conservarán.",
             icon: "warning",
             showCancelButton: true,
-            confirmButtonColor: "#d33",
+            confirmButtonColor: "#ffc107",
             cancelButtonColor: "#6c757d",
-            confirmButtonText: "Sí, eliminar",
+            confirmButtonText: "Sí, desactivar",
             cancelButtonText: "Cancelar"
-
         }).then((result) => {
 
             if (result.isConfirmed) {
-                formulario.submit();
+                formulario.requestSubmit();
             }
 
         });

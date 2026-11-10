@@ -9,8 +9,8 @@ __pycache__/
 *$py.class
 
 # Django
-db.sqlite3
-db.sqlite3-journal
+*.sqlite3
+*.sqlite3-journal
 *.log
 
 # Variables de entorno
@@ -37,3 +37,7 @@ Thumbs.db
 
 # Inventario local de carpetas y archivos
 estructura.txt
+
+# Respaldos locales del proyecto
+*_backup.py
+*_antes_*.py

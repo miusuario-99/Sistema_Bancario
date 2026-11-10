@@ -1,7 +1,44 @@
 from django.db import models
 from django.db.models import Q
 from cuentas.models import Cuenta
+import uuid
 
+class OperacionBancaria(models.Model):
+
+    TIPO_OPERACION = [
+        ("D", "Depósito"),
+        ("R", "Retiro"),
+        ("T", "Transferencia"),
+    ]
+
+    idempotency_key = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False
+    )
+
+    usuario = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT
+    )
+
+    tipo = models.CharField(
+        max_length=1,
+        choices=TIPO_OPERACION
+    )
+
+    fecha = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return (
+            f"{self.get_tipo_display()} - "
+            f"{self.idempotency_key}"
+        )
 
 class Movimiento(models.Model):
 
@@ -13,7 +50,15 @@ class Movimiento(models.Model):
 
     cuenta = models.ForeignKey(
         Cuenta,
-        on_delete=models.CASCADE
+        on_delete=models.PROTECT
+    )
+
+    operacion = models.ForeignKey(
+        OperacionBancaria,
+        on_delete=models.PROTECT,
+        related_name="movimientos",
+        null=True,
+        blank=True
     )
 
     tipo = models.CharField(

@@ -19,46 +19,110 @@
                 <div class="mb-3">
                     <label>DNI</label>
                     {{ form.dni }}
+
+                    {% if form.dni.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.dni.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-3">
                     <label>Nombres</label>
                     {{ form.nombres }}
+
+                    {% if form.nombres.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.nombres.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-3">
-                    <label>Apellidos</label>
-                    {{ form.apellidos }}
-                </div>
+                <label>Apellidos</label>
+                {{ form.apellidos }}
 
-                <div class="mb-3">
-                    <label>Fecha de Nacimiento</label>
-                    {{ form.fecha_nacimiento }}
-                </div>
-
+                {% if form.apellidos.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.apellidos.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
+
+                <div class="mb-3">
+                <label>Fecha de Nacimiento</label>
+                {{ form.fecha_nacimiento }}
+
+                {% if form.fecha_nacimiento.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.fecha_nacimiento.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
 
             <!-- COLUMNA DERECHA -->
             <div class="col-md-6">
 
                 <div class="mb-3">
-                    <label>Dirección</label>
-                    {{ form.direccion }}
-                </div>
+                <label>Dirección</label>
+                {{ form.direccion }}
+
+                {% if form.direccion.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.direccion.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
 
                 <div class="mb-3">
                     <label>Teléfono</label>
                     {{ form.telefono }}
+
+                    {% if form.telefono.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.telefono.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-3">
                     <label>Correo</label>
                     {{ form.correo }}
+
+                    {% if form.correo.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.correo.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-3">
                     <label>Estado</label>
                     {{ form.estado }}
+
+                    {% if form.estado.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.estado.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
             </div>

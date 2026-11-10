@@ -21,9 +21,21 @@ class UsuarioForm(UserCreationForm):
         required=True,
     )
 
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Este correo electrónico ya está registrado."
+            )
+
+        return email
+
     groups = forms.ModelMultipleChoiceField(
         label="Grupos",
-        queryset=Group.objects.all().order_by("name"),
+        queryset=Group.objects.filter(
+            name__in=["Supervisor", "Cajero"]
+        ).order_by("name"),
         required=True,
         widget=forms.CheckboxSelectMultiple,
     )

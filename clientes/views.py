@@ -19,14 +19,15 @@ from cuentas.models import Cuenta
 # ==========================
 # LISTAR CLIENTES
 # ==========================
-@grupos_permitidos("Administrador", "Supervisor", "Cajero")
+@grupos_permitidos("Administrador", "Cajero", "Supervisor")
 def lista_clientes(request):
 
-    query = request.GET.get("q", "")
+    query = request.GET.get("q", "").strip()
+    estado = request.GET.get("estado", "todos")
 
     clientes = Cliente.objects.all()
 
-    # 🔍 BUSCADOR
+    # BUSCADOR POR DNI, NOMBRES Y APELLIDOS
     if query:
         clientes = clientes.filter(
             Q(dni__icontains=query) |
@@ -34,15 +35,21 @@ def lista_clientes(request):
             Q(apellidos__icontains=query)
         )
 
-    # 📄 PAGINACIÓN
-    paginator = Paginator(clientes, 5)  # 5 por página
+    # FILTRO POR ESTADO
+    if estado == "activos":
+        clientes = clientes.filter(estado="A")
+    elif estado == "inactivos":
+        clientes = clientes.filter(estado="I")
+
+    # ORDENAMIENTO
+    clientes = clientes.order_by("id")
+
+    # PAGINACIÓN
+    paginator = Paginator(clientes, 5)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    # ==========================
-    # ESTADÍSTICAS
-    # ==========================
-
+    # ESTADÍSTICAS GENERALES
     total_clientes = Cliente.objects.count()
 
     clientes_activos = Cliente.objects.filter(
@@ -54,14 +61,12 @@ def lista_clientes(request):
     ).count()
 
     return render(request, "clientes/lista.html", {
-
         "page_obj": page_obj,
         "query": query,
-
+        "estado": estado,
         "total_clientes": total_clientes,
         "clientes_activos": clientes_activos,
         "clientes_inactivos": clientes_inactivos,
-
     })
 
 # ==========================
@@ -74,7 +79,7 @@ def nuevo_cliente(request):
 
         form = ClienteForm(request.POST)
 
-        if form.is_valid():            
+        if form.is_valid():
             cliente = form.save()
 
             registrar_auditoria(
@@ -109,7 +114,7 @@ def editar_cliente(request, id):
         form = ClienteForm(request.POST, instance=cliente)
 
         if form.is_valid():
-           
+
             cliente = form.save()
 
             registrar_auditoria(
@@ -139,41 +144,52 @@ def eliminar_cliente(request, id):
     if request.method != "POST":
         messages.error(
             request,
-            "La eliminación requiere una solicitud POST."
+            "La desactivación requiere una solicitud POST."
         )
         return redirect("lista_clientes")
 
     cliente = get_object_or_404(Cliente, id=id)
 
-    # Proteger las cuentas bancarias y sus movimientos
+    # Evitar operaciones innecesarias sobre clientes inactivos.
+    if cliente.estado == "I":
+        messages.warning(
+            request,
+            "El cliente ya se encuentra inactivo."
+        )
+        return redirect("lista_clientes")
+
+    # Conservar la protección de las cuentas bancarias.
     if Cuenta.objects.filter(cliente=cliente).exists():
         messages.error(
             request,
-            "No se puede eliminar este cliente porque "
+            "No se puede desactivar este cliente porque "
             "tiene cuentas bancarias asociadas. "
             "Debe conservarse su historial bancario."
         )
         return redirect("lista_clientes")
 
-    # Guardar los datos antes de eliminar
+    # Guardar los datos antes de modificar el estado.
     detalle_cliente = (
         f"Cliente: {cliente.dni} - "
         f"{cliente.nombres} {cliente.apellidos}"
     )
 
-    # Registrar la auditoría antes de eliminar
+    # Registrar la operación en la auditoría.
     registrar_auditoria(
         request,
         "Clientes",
-        "Eliminar",
+        "Desactivar",
         detalle_cliente
     )
 
-    cliente.delete()
+    # Desactivación lógica: no se elimina el registro.
+    cliente.estado = "I"
+    cliente.save(update_fields=["estado"])
 
     messages.success(
         request,
-        "Cliente eliminado correctamente."
+        "Cliente desactivado correctamente. "
+        "Sus datos se han conservado."
     )
 
     return redirect("lista_clientes")
@@ -182,7 +198,7 @@ def eliminar_cliente(request, id):
     # EXPORTAR CLIENTES A EXCEL
     # ==========================
 
-@grupos_permitidos("Administrador", "Supervisor", "Cajero")
+@grupos_permitidos("Administrador", "Cajero")
 def exportar_clientes_excel(request):
     # Código existente de exportación Excel
     wb = Workbook()
@@ -330,7 +346,7 @@ def exportar_clientes_excel(request):
 # EXPORTAR CLIENTES PDF
 # ==========================
 
-@grupos_permitidos("Administrador", "Supervisor", "Cajero")
+@grupos_permitidos("Administrador", "Cajero")
 def exportar_clientes_pdf(request):
     import os
     from datetime import datetime

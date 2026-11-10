@@ -3,6 +3,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Auditoria
 from django.http import HttpResponse
+from datetime import datetime
+from django.contrib import messages
 
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -16,15 +18,60 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
-
 from django.conf import settings
-from datetime import datetime
 import os
-
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side, PatternFill
 from usuarios.decorators import grupos_permitidos
 from copy import copy
+from xml.sax.saxutils import escape
+from reportlab.pdfgen import canvas
+
+def validar_fechas(request):
+    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
+    fecha_fin = request.GET.get("fecha_fin", "").strip()
+
+    inicio = None
+    fin = None
+    fechas_validas = True
+
+    if fecha_inicio:
+        try:
+            inicio = datetime.strptime(
+                fecha_inicio, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            messages.error(
+                request,
+                "La fecha inicial no es válida."
+            )
+            fechas_validas = False
+
+    if fecha_fin:
+        try:
+            fin = datetime.strptime(
+                fecha_fin, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            messages.error(
+                request,
+                "La fecha final no es válida."
+            )
+            fechas_validas = False
+
+    if (
+        fechas_validas
+        and inicio is not None
+        and fin is not None
+        and inicio > fin
+    ):
+        messages.error(
+            request,
+            "La fecha inicial no puede ser posterior a la fecha final."
+        )
+        fechas_validas = False
+
+    return inicio, fin, fechas_validas
 
 @grupos_permitidos("Administrador", "Supervisor")
 def lista_auditoria(request):
@@ -33,30 +80,47 @@ def lista_auditoria(request):
     fecha_inicio = request.GET.get("fecha_inicio", "").strip()
     fecha_fin = request.GET.get("fecha_fin", "").strip()
 
-    auditorias = Auditoria.objects.select_related(
-        "usuario"
-    ).order_by("-fecha")
+    inicio, fin, fechas_validas = validar_fechas(request)
+
+    # ============================
+    # CONSULTA DE AUDITORÍA
+    # ============================
+
+    auditorias = (
+        Auditoria.objects
+        .select_related("usuario")
+        .order_by("-fecha")
+    )
 
     # FILTRO POR TEXTO
     if query:
         auditorias = auditorias.filter(
-            Q(usuario__username__icontains=query) |
-            Q(modulo__icontains=query) |
-            Q(accion__icontains=query) |
-            Q(descripcion__icontains=query)
+            Q(usuario__username__icontains=query)
+            | Q(modulo__icontains=query)
+            | Q(accion__icontains=query)
+            | Q(descripcion__icontains=query)
         )
 
-    # FILTRO POR FECHA DE INICIO
-    if fecha_inicio:
-        auditorias = auditorias.filter(
-            fecha__date__gte=fecha_inicio
-        )
+    # APLICAR FILTROS SOLO SI LAS FECHAS SON VÁLIDAS
+    if fechas_validas:
 
-    # FILTRO POR FECHA DE FIN
-    if fecha_fin:
-        auditorias = auditorias.filter(
-            fecha__date__lte=fecha_fin
-        )
+        if inicio is not None:
+            auditorias = auditorias.filter(
+                fecha__date__gte=inicio
+            )
+
+        if fin is not None:
+            auditorias = auditorias.filter(
+                fecha__date__lte=fin
+            )
+
+    else:
+        # No mostrar registros si las fechas son inválidas.
+        auditorias = auditorias.none()
+
+    # ============================
+    # PAGINACIÓN
+    # ============================
 
     paginator = Paginator(auditorias, 10)
 
@@ -73,6 +137,42 @@ def lista_auditoria(request):
             "fecha_fin": fecha_fin,
         }
     )
+
+class NumeracionPaginas(canvas.Canvas):
+
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self._paginas = []
+
+    def showPage(self):
+        self._paginas.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total_paginas = len(self._paginas)
+
+        for pagina in self._paginas:
+            self.__dict__.update(pagina)
+            self.dibujar_numero_pagina(total_paginas)
+            canvas.Canvas.showPage(self)
+
+        canvas.Canvas.save(self)
+
+    def dibujar_numero_pagina(self, total_paginas):
+        numero_pagina = self._pageNumber
+
+        self.saveState()
+        self.setFont("Helvetica", 8)
+        self.setFillColor(colors.grey)
+
+        self.drawCentredString(
+            landscape(A4)[0] / 2,
+            15,
+            f"Página {numero_pagina} de {total_paginas}"
+        )
+
+        self.restoreState()
+
 # ==========================
 # EXPORTAR AUDITORÍA PDF
 # ==========================
@@ -98,7 +198,6 @@ def exportar_auditoria_pdf(request):
     )
 
     elementos = []
-
     estilos = getSampleStyleSheet()
 
     # ============================
@@ -113,18 +212,14 @@ def exportar_auditoria_pdf(request):
     )
 
     if os.path.exists(ruta_logo):
-
         logo = Image(
             ruta_logo,
             width=70,
             height=70
         )
-
         elementos.append(logo)
 
-    elementos.append(
-        Spacer(1, 10)
-    )
+    elementos.append(Spacer(1, 10))
 
     # ============================
     # ENCABEZADO
@@ -159,9 +254,7 @@ def exportar_auditoria_pdf(request):
         )
     )
 
-    elementos.append(
-        Spacer(1, 20)
-    )
+    elementos.append(Spacer(1, 20))
 
     # ============================
     # DATOS
@@ -177,8 +270,8 @@ def exportar_auditoria_pdf(request):
     ]]
 
     query = request.GET.get("q", "").strip()
-    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
-    fecha_fin = request.GET.get("fecha_fin", "").strip()
+
+    inicio, fin, fechas_validas = validar_fechas(request)
 
     auditorias = (
         Auditoria.objects
@@ -194,20 +287,32 @@ def exportar_auditoria_pdf(request):
             Q(descripcion__icontains=query)
         )
 
-    if fecha_inicio:
-        auditorias = auditorias.filter(
-            fecha__date__gte=fecha_inicio
-        )
+    # ============================
+    # APLICAR FILTROS DE FECHA
+    # ============================
 
-    if fecha_fin:
-        auditorias = auditorias.filter(
-            fecha__date__lte=fecha_fin
-        )
+    if fechas_validas:
+        if inicio is not None:
+            auditorias = auditorias.filter(
+                fecha__date__gte=inicio
+            )
 
-    for numero, registro in enumerate(
-        auditorias,
-        start=1
-    ):
+        if fin is not None:
+            auditorias = auditorias.filter(
+                fecha__date__lte=fin
+            )
+    else:
+        # No exportar registros si el rango es inválido.
+        auditorias = auditorias.none()
+
+    # ============================
+    # RECORRER REGISTROS
+    # ============================
+
+    def texto_seguro_pdf(valor):
+        return escape(str(valor or ""))
+
+    for numero, registro in enumerate(auditorias, start=1):
 
         usuario = (
             registro.usuario.username
@@ -216,19 +321,28 @@ def exportar_auditoria_pdf(request):
         )
 
         datos.append([
-        str(numero),
-        Paragraph(usuario, estilos["Normal"]),
-        Paragraph(registro.modulo or "", estilos["Normal"]),
-        Paragraph(registro.accion or "", estilos["Normal"]),
-        Paragraph(
-            (registro.descripcion or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"),
-            estilos["Normal"]
-        ),
-        Paragraph(
-            registro.fecha.strftime("%d/%m/%Y %H:%M"),
-            estilos["Normal"]
-        ),
-    ])
+            str(numero),
+            Paragraph(
+                texto_seguro_pdf(usuario),
+                estilos["Normal"]
+            ),
+            Paragraph(
+                texto_seguro_pdf(registro.modulo),
+                estilos["Normal"]
+            ),
+            Paragraph(
+                texto_seguro_pdf(registro.accion),
+                estilos["Normal"]
+            ),
+            Paragraph(
+                texto_seguro_pdf(registro.descripcion),
+                estilos["Normal"]
+            ),
+            Paragraph(
+                registro.fecha.strftime("%d/%m/%Y %H:%M"),
+                estilos["Normal"]
+            ),
+        ])
 
     # ============================
     # TABLA
@@ -238,42 +352,37 @@ def exportar_auditoria_pdf(request):
         datos,
         repeatRows=1,
         colWidths=[
-            30,   # N.º
-            90,   # Usuario
-            90,   # Módulo
-            105,  # Acción
-            300,  # Descripción
-            100,  # Fecha
+            30,
+            90,
+            90,
+            105,
+            300,
+            100,
         ],
         hAlign="CENTER",
     )
 
     tabla.setStyle(
         TableStyle([
-
             (
                 "BACKGROUND",
                 (0, 0),
                 (-1, 0),
                 colors.darkblue
             ),
-
             (
                 "TEXTCOLOR",
                 (0, 0),
                 (-1, 0),
                 colors.white
             ),
-
             (
                 "FONTNAME",
                 (0, 0),
                 (-1, 0),
                 "Helvetica-Bold"
             ),
-
             ("FONTSIZE", (0, 0), (-1, -1), 8),
-
             (
                 "GRID",
                 (0, 0),
@@ -281,57 +390,47 @@ def exportar_auditoria_pdf(request):
                 0.5,
                 colors.grey
             ),
-
             (
                 "BACKGROUND",
                 (0, 1),
                 (-1, -1),
                 colors.whitesmoke
             ),
-
             (
                 "VALIGN",
                 (0, 0),
                 (-1, -1),
                 "MIDDLE"
             ),
-
             (
                 "ALIGN",
                 (0, 0),
                 (0, -1),
                 "CENTER"
             ),
-
             (
                 "ALIGN",
                 (5, 1),
                 (5, -1),
                 "CENTER"
             ),
-
             (
                 "BOTTOMPADDING",
                 (0, 0),
                 (-1, 0),
                 5
             ),
-
             (
                 "TOPPADDING",
                 (0, 0),
                 (-1, 0),
                 5
             ),
-
         ])
     )
 
     elementos.append(tabla)
-
-    elementos.append(
-        Spacer(1, 20)
-    )
+    elementos.append(Spacer(1, 20))
 
     elementos.append(
         Paragraph(
@@ -341,9 +440,22 @@ def exportar_auditoria_pdf(request):
         )
     )
 
-    doc.build(elementos)
+    # Generar el PDF y devolver la respuesta HTTP.
+    doc.build(
+        elementos,
+        canvasmaker=NumeracionPaginas
+    )
 
     return response
+
+def texto_seguro_excel(valor):
+    texto = "" if valor is None else str(valor)
+
+    # Evitar que Excel interprete el contenido como fórmula.
+    if texto.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + texto
+
+    return texto
 
 # ==========================
 # EXPORTAR AUDITORÍA EXCEL
@@ -376,8 +488,8 @@ def exportar_auditoria_excel(request):
     # ============================
 
     query = request.GET.get("q", "").strip()
-    fecha_inicio = request.GET.get("fecha_inicio", "").strip()
-    fecha_fin = request.GET.get("fecha_fin", "").strip()
+
+    inicio, fin, fechas_validas = validar_fechas(request)
 
     auditorias = (
         Auditoria.objects
@@ -394,17 +506,23 @@ def exportar_auditoria_excel(request):
             Q(descripcion__icontains=query)
         )
 
-    # FILTRO POR FECHA DE INICIO
-    if fecha_inicio:
-        auditorias = auditorias.filter(
-            fecha__date__gte=fecha_inicio
-        )
+    # ============================
+    # APLICAR FILTROS DE FECHA
+    # ============================
 
-    # FILTRO POR FECHA DE FIN
-    if fecha_fin:
-        auditorias = auditorias.filter(
-            fecha__date__lte=fecha_fin
-        )
+    if fechas_validas:
+        if inicio is not None:
+            auditorias = auditorias.filter(
+                fecha__date__gte=inicio
+            )
+
+        if fin is not None:
+            auditorias = auditorias.filter(
+                fecha__date__lte=fin
+            )
+    else:
+        # No exportar registros si el rango de fechas es inválido.
+        auditorias = auditorias.none()
 
     for numero, registro in enumerate(
         auditorias,
@@ -418,21 +536,14 @@ def exportar_auditoria_excel(request):
         )
 
         ws.append([
-
             numero,
-
-            usuario,
-
-            registro.modulo,
-
-            registro.accion,
-
-            registro.descripcion or "",
-
+            texto_seguro_excel(usuario),
+            texto_seguro_excel(registro.modulo),
+            texto_seguro_excel(registro.accion),
+            texto_seguro_excel(registro.descripcion),
             registro.fecha.strftime(
                 "%d/%m/%Y %H:%M"
             ),
-
         ])
 
     # ============================
@@ -445,16 +556,6 @@ def exportar_auditoria_excel(request):
         fuente.bold = True
         fuente.color = "FFFFFF"
         celda.font = fuente
-
-        celda.fill = PatternFill(
-            fill_type="solid",
-            fgColor="0B3A75"
-        )
-
-        celda.alignment = Alignment(
-            horizontal="center",
-            vertical="center"
-        )
 
         celda.fill = PatternFill(
             fill_type="solid",

@@ -66,6 +66,11 @@ def registrar_login_fallido(
             or "No identificado"
         )
 
+        usuario_intentado = str(usuario_intentado)
+        usuario_intentado = usuario_intentado.replace("\n", " ")
+        usuario_intentado = usuario_intentado.replace("\r", " ")
+        usuario_intentado = usuario_intentado[:150]
+
         Auditoria.objects.create(
             usuario=None,
             modulo="Seguridad",

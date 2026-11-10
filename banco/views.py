@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from movimientos.models import Movimiento
 from clientes.models import Cliente
 from cuentas.models import Cuenta
@@ -293,19 +293,22 @@ def estado_cuenta(request):
 @grupos_permitidos("Administrador", "Supervisor", "Cajero")
 def estado_cuenta_pdf(request, cuenta_id):
 
-    cuenta = Cuenta.objects.get(id=cuenta_id)
-    movimientos = Movimiento.objects.filter(cuenta=cuenta)
-
-    # Ruta del logotipo
-    logo = os.path.join(
-        settings.BASE_DIR,
-        "static",
-        "img",
-        "logo_banco.png"
+    cuenta = get_object_or_404(
+        Cuenta.objects.select_related("cliente"),
+        id=cuenta_id
     )
 
-    response = HttpResponse(content_type="application/pdf")
+    movimientos = list(
+        Movimiento.objects
+        .filter(cuenta=cuenta)
+        .order_by("fecha", "id")
+    )
 
+    # ==========================================
+    # CONFIGURACIÓN DEL DOCUMENTO
+    # ==========================================
+
+    response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
         f'attachment; filename="estado_cuenta_{cuenta.numero_cuenta}.pdf"'
     )
@@ -314,122 +317,233 @@ def estado_cuenta_pdf(request, cuenta_id):
 
     ANCHO, ALTO = A4
 
-    # ============================
-    # CABECERA
-    # ============================
-    y = ALTO - 2 * cm
-    # Barra superior azul
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
+    margen_izquierdo = 2 * cm
+    margen_derecho = 19 * cm
+    ancho_tabla = margen_derecho - margen_izquierdo
 
-    pdf.rect(
-        0,
-        ALTO - 0.5 * cm,
-        ANCHO,
-        0.5 * cm,
-        fill=1,
-        stroke=0
+    azul = colors.HexColor("#0B3A75")
+
+    # ==========================================
+    # DATOS DEL RESUMEN
+    # ==========================================
+
+    total_depositos = sum(
+    m.monto for m in movimientos
+    if m.tipo == "D"
+)
+
+    total_retiros = sum(
+        m.monto for m in movimientos
+        if m.tipo == "R"
     )
 
-    # Logotipo (si existe)
+    transferencias_recibidas = sum(
+        m.monto for m in movimientos
+        if m.tipo == "T"
+        and (m.descripcion or "").startswith("Transferencia desde ")
+    )
 
-    try:
-        pdf.drawImage(
-            logo,
-            1.8 * cm,
-            ALTO - 3.0 * cm,
-            width=2 * cm,
-            height=2 * cm,
-            preserveAspectRatio=True,
-            mask='auto'
+    transferencias_enviadas = sum(
+        m.monto for m in movimientos
+        if m.tipo == "T"
+        and (m.descripcion or "").startswith("Transferencia a ")
+    )
+
+    # ==========================================
+    # ENCABEZADO GENERAL
+    # ==========================================
+
+    def dibujar_encabezado():
+
+        pdf.setFillColor(azul)
+        pdf.rect(
+            0,
+            ALTO - 0.5 * cm,
+            ANCHO,
+            0.5 * cm,
+            fill=1,
+            stroke=0
         )
-    except:
-        pass
 
-    # Nombre del banco
+        # Logotipo: solo se omite si no se puede cargar.
+        logo = os.path.join(
+            settings.BASE_DIR,
+            "static",
+            "img",
+            "logo_banco.png"
+        )
 
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
+        if os.path.isfile(logo):
+            try:
+                pdf.drawImage(
+                    logo,
+                    1.8 * cm,
+                    ALTO - 3.0 * cm,
+                    width=2 * cm,
+                    height=2 * cm,
+                    preserveAspectRatio=True,
+                    mask="auto"
+                )
+            except (OSError, ValueError):
+                pass
 
-    pdf.setFont("Helvetica-Bold", 22)
+        pdf.setFillColor(azul)
+        pdf.setFont("Helvetica-Bold", 22)
+        pdf.drawString(
+            5 * cm,
+            ALTO - 1.8 * cm,
+            "BANCO PYTHON"
+        )
 
-    pdf.drawString(
-        5 * cm,
-        ALTO - 1.8 * cm,
-        "BANCO PYTHON"
-    )
+        pdf.setFillColor(colors.grey)
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(
+            5 * cm,
+            ALTO - 2.5 * cm,
+            "Tecnología • Seguridad • Confianza"
+        )
 
-    # Lema
+        pdf.setFillColor(colors.black)
+        pdf.setFont("Helvetica", 9)
+        pdf.drawRightString(
+            margen_derecho,
+            ALTO - 1.7 * cm,
+            f"Emitido: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        )
 
-    pdf.setFillColor(colors.grey)
+        pdf.setStrokeColor(azul)
+        pdf.setLineWidth(1)
+        pdf.line(
+            margen_izquierdo,
+            ALTO - 3.6 * cm,
+            margen_derecho,
+            ALTO - 3.6 * cm
+        )
 
-    pdf.setFont("Helvetica", 11)
+        pdf.setFont("Helvetica-Bold", 18)
+        pdf.setFillColor(azul)
+        pdf.drawCentredString(
+            ANCHO / 2,
+            ALTO - 4.4 * cm,
+            "ESTADO DE CUENTA BANCARIO"
+        )
 
-    pdf.drawString(
-        5 * cm,
-        ALTO - 2.5 * cm,
-        "Tecnología • Seguridad • Confianza"
-    )
+    # ==========================================
+    # PIE DE PÁGINA
+    # ==========================================
 
-    # Fecha de emisión
+    def dibujar_pie_pagina(numero_pagina):
 
-    pdf.setFillColor(colors.black)
+        pdf.setStrokeColor(azul)
+        pdf.setLineWidth(0.8)
 
-    pdf.setFont("Helvetica", 9)
+        pdf.line(
+            margen_izquierdo,
+            1.8 * cm,
+            margen_derecho,
+            1.8 * cm
+        )
 
-    pdf.drawRightString(
-        19 * cm,
-        ALTO - 1.7 * cm,
-        f"Emitido: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
+        pdf.setFillColor(colors.black)
+        pdf.setFont("Helvetica-Oblique", 8)
 
-    # Línea separadora
+        pdf.drawCentredString(
+            ANCHO / 2,
+            1.3 * cm,
+            "Documento generado automáticamente por el Sistema Bancario"
+        )
 
-    pdf.setStrokeColor(colors.HexColor("#0B3A75"))
+        pdf.drawRightString(
+            margen_derecho,
+            0.7 * cm,
+            f"Página {numero_pagina}"
+        )
 
-    pdf.setLineWidth(1)
+    # ==========================================
+    # ENCABEZADO DE LA TABLA
+    # ==========================================
 
-    pdf.line(
-        2 * cm,
-        ALTO - 3.6 * cm,
-        19 * cm,
-        ALTO - 3.6 * cm
-    )
+    alto_fila = 0.80 * cm
 
-    # Título principal
+    x1 = 2.0 * cm
+    x2 = 4.8 * cm
+    x3 = 7.5 * cm
+    x4 = 13.0 * cm
+    x5 = 16.0 * cm
+    x6 = 19.0 * cm
 
-    pdf.setFont("Helvetica-Bold", 18)
+    def dibujar_encabezado_tabla(y):
 
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
+        pdf.setFillColor(azul)
+        pdf.rect(
+            x1,
+            y,
+            x6 - x1,
+            alto_fila,
+            fill=1,
+            stroke=1
+        )
 
-    pdf.drawCentredString(
-        ANCHO / 2,
-        ALTO - 4.4 * cm,
-        "ESTADO DE CUENTA BANCARIO"
-    )
+        pdf.setFillColor(colors.white)
+        pdf.setFont("Helvetica-Bold", 8)
 
-    # =====================================================
-    # DATOS DEL CLIENTE
-    # =====================================================
+        pdf.drawCentredString(
+            (x1 + x2) / 2,
+            y + 0.28 * cm,
+            "Fecha"
+        )
+
+        pdf.drawCentredString(
+            (x2 + x3) / 2,
+            y + 0.28 * cm,
+            "Tipo"
+        )
+
+        pdf.drawCentredString(
+            (x3 + x4) / 2,
+            y + 0.28 * cm,
+            "Descripción"
+        )
+
+        pdf.drawCentredString(
+            (x4 + x5) / 2,
+            y + 0.28 * cm,
+            "Monto"
+        )
+
+        pdf.drawCentredString(
+            (x5 + x6) / 2,
+            y + 0.28 * cm,
+            "Saldo"
+        )
+
+        return y - alto_fila
+
+    # ==========================================
+    # PRIMERA PÁGINA: CLIENTE Y CUENTA
+    # ==========================================
+
+    numero_pagina = 1
+
+    dibujar_encabezado()
 
     y = ALTO - 6.2 * cm
 
-    # Recuadro
-    pdf.setStrokeColor(colors.HexColor("#0B3A75"))
+    pdf.setStrokeColor(azul)
     pdf.setFillColor(colors.white)
 
     pdf.roundRect(
-        2 * cm,
+        margen_izquierdo,
         y - 2.8 * cm,
-        17 * cm,
+        ancho_tabla,
         2.8 * cm,
         8,
         fill=1,
         stroke=1
     )
 
-    # Título del recuadro
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
+    pdf.setFillColor(azul)
     pdf.setFont("Helvetica-Bold", 11)
-
     pdf.drawString(
         2.3 * cm,
         y - 0.4 * cm,
@@ -439,293 +553,260 @@ def estado_cuenta_pdf(request, cuenta_id):
     pdf.setFillColor(colors.black)
     pdf.setFont("Helvetica", 10)
 
-    # Primera línea
     pdf.drawString(
         2.5 * cm,
         y - 1.0 * cm,
-        f"Cliente : {cuenta.cliente}"
+        f"Cliente: {cuenta.cliente}"
     )
 
-    # Segunda línea
     pdf.drawString(
         2.5 * cm,
         y - 1.6 * cm,
-        f"Cuenta : {cuenta.numero_cuenta}"
+        f"Cuenta: {cuenta.numero_cuenta}"
     )
 
     pdf.drawString(
         11.2 * cm,
         y - 1.6 * cm,
-        f"Tipo : {cuenta.get_tipo_cuenta_display()}"
+        f"Tipo: {cuenta.get_tipo_cuenta_display()}"
     )
 
-    # Tercera línea
     pdf.drawString(
         2.5 * cm,
         y - 2.2 * cm,
-        f"Saldo actual : S/ {cuenta.saldo:,.2f}"
+        f"Saldo actual: S/ {cuenta.saldo:,.2f}"
     )
 
     pdf.drawString(
         11.2 * cm,
         y - 2.2 * cm,
-        f"Estado : {cuenta.get_estado_display()}"
+        f"Estado: {cuenta.get_estado_display()}"
     )
 
-    # Posición inicial de la tabla
-    y = y - 3.4 * cm
+    # Tabla de movimientos
+    y = ALTO - 10.5 * cm
+    y = dibujar_encabezado_tabla(y)
 
-    # ======================================================
-    # TABLA DE MOVIMIENTOS
-    # ======================================================
-
-    y -= 1 * cm  # 5.2
-
-    alto_fila = 1.0 * cm
-
-    # Columnas de la tabla
-    x1 = 2.0 * cm      # Inicio tabla
-    x2 = 4.8 * cm      # Fecha
-    x3 = 7.5 * cm      # Tipo
-    x4 = 13.8 * cm     # Descripción
-    x5 = 16.5 * cm     # Monto
-    x6 = 19.5 * cm     # Saldo
-
-    alto_fila = 0.80 * cm
-
-    # ============================
-    # ENCABEZADO TABLA
-    # ============================
-
-    y -= 0.6 * cm
-
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
-
-    pdf.rect(
-        x1,
-        y,
-        x6 - x1,
-        alto_fila,
-        fill=1,
-        stroke=1
-    )
-
-    pdf.setFillColor(colors.white)
-
-    pdf.setFont("Helvetica-Bold", 9)
-
-    pdf.drawCentredString((x1+x2)/2, y+0.28*cm, "Fecha")
-    pdf.drawCentredString((x2+x3)/2, y+0.28*cm, "Tipo")
-    pdf.drawCentredString((x3+x4)/2, y+0.28*cm, "Descripción")
-    pdf.drawCentredString((x4+x5)/2, y+0.28*cm, "Monto")
-    pdf.drawCentredString((x5+x6)/2, y+0.28*cm, "Saldo")
-
-    y -= 0.25 * cm
-
-    pdf.line(
-        2 * cm,
-        y,
-        19 * cm,
-        y
-    )
-
-    y -= 0.5 * cm
-
-    pdf.setFont("Helvetica", 9)
-
-    y -= alto_fila
-
-    # ============================
-    # MOVIMIENTOS
-    # ============================
-
-    print("TOTAL MOVIMIENTOS:", movimientos.count())
     pdf.setFillColor(colors.black)
-    pdf.setFont("Helvetica", 12)
+    pdf.setFont("Helvetica", 8)
+
+    # ==========================================
+    # MOVIMIENTOS
+    # ==========================================
 
     for movimiento in movimientos:
 
-        pdf.rect(x1, y, x6-x1, alto_fila, stroke=1, fill=0)
+        # Comprobar el espacio ANTES de dibujar la fila.
+        if y - alto_fila < 2.3 * cm:
 
-        pdf.line(x2, y, x2, y+alto_fila)
-        pdf.line(x3, y, x3, y+alto_fila)
-        pdf.line(x4, y, x4, y+alto_fila)
-        pdf.line(x5, y, x5, y+alto_fila)
+            dibujar_pie_pagina(numero_pagina)
+            pdf.showPage()
 
-        pdf.drawString(
-            x1 + 2,
+            numero_pagina += 1
+
+            # En las páginas siguientes se repiten
+            # la cabecera general y las columnas.
+            dibujar_encabezado()
+
+            y = ALTO - 5.2 * cm
+            y = dibujar_encabezado_tabla(y)
+
+            pdf.setFillColor(colors.black)
+            pdf.setFont("Helvetica", 8)
+
+        pdf.setStrokeColor(colors.lightgrey)
+
+        pdf.rect(
+            x1,
+            y,
+            x6 - x1,
+            alto_fila,
+            stroke=1,
+            fill=0
+        )
+
+        for x in (x2, x3, x4, x5):
+            pdf.line(
+                x,
+                y,
+                x,
+                y + alto_fila
+            )
+
+        # Fecha
+        pdf.drawCentredString(
+            (x1 + x2) / 2,
             y + 0.28 * cm,
             movimiento.fecha.strftime("%d/%m/%Y")
         )
 
+        # Tipo
         tipo = movimiento.get_tipo_display()
 
         if tipo == "Transferencia":
             tipo = "Transfer."
 
-        pdf.drawString(
-            x2 + 2,
+        pdf.drawCentredString(
+            (x2 + x3) / 2,
             y + 0.28 * cm,
-            tipo
+            tipo[:18]
         )
 
-        # ==========================
-        # LIMPIAR LA DESCRIPCIÓN
-        # ==========================
+        # Descripción
+        descripcion = movimiento.descripcion or ""
 
-        descripcion = movimiento.descripcion
-
-        if descripcion.startswith("Transferencia"):
-            descripcion = descripcion.replace("Transferencia ", "", 1)
-
-        if descripcion.startswith("Depósito"):
-            descripcion = descripcion.replace("Depósito ", "", 1)
-
-        if descripcion.startswith("Retiro"):
-            descripcion = descripcion.replace("Retiro ", "", 1)
+        for prefijo in ("Transferencia ", "Depósito ", "Retiro "):
+            if descripcion.startswith(prefijo):
+                descripcion = descripcion[len(prefijo):]
+                break
 
         pdf.drawString(
-            x3 + 2,
+            x3 + 3,
             y + 0.28 * cm,
-            descripcion[:28]
+            descripcion[:45]
         )
 
-        # ==========================
-        # MONTO
-        # ==========================
-
+        # Monto
         pdf.drawRightString(
             x5 - 3,
             y + 0.28 * cm,
-            f"S/ {movimiento.monto:,.2f}"
+            f"{movimiento.monto:,.2f}"
         )
 
-        # ==========================
-        # SALDO
-        # ==========================
-
+        # Saldo
         pdf.drawRightString(
             x6 - 3,
             y + 0.28 * cm,
-            f"S/ {movimiento.saldo_actual:,.2f}"
+            f"{movimiento.saldo_actual:,.2f}"
         )
 
-        # Pasar a la siguiente fila
         y -= alto_fila
 
-        # Nueva página si ya no hay espacio
-        if y < 3 * cm:
-            pdf.showPage()
-            y = ALTO - 2 * cm
-
-        # ==========================
-        # LIMPIAR LA DESCRIPCIÓN
-        # ==========================
-
-
-    total_depositos = sum(m.monto for m in movimientos if m.tipo == "D")
-    total_retiros = sum(m.monto for m in movimientos if m.tipo == "R")
-    total_transferencias = sum(m.monto for m in movimientos if m.tipo == "T"
-    )
-
-    # ======================================
+    # ==========================================
     # RESUMEN DEL PERÍODO
-    # ======================================
+    # ==========================================
 
-    y -= 1 * cm
+    alto_resumen = 3.5 * cm
 
-    alto_resumen = 3.2 * cm
+    # Reservar espacio para el resumen y el pie.
+    if y - 1.0 * cm - alto_resumen < 2.3 * cm:
 
-    pdf.setStrokeColor(colors.HexColor("#0B3A75"))
+        dibujar_pie_pagina(numero_pagina)
+        pdf.showPage()
+
+        numero_pagina += 1
+
+        dibujar_encabezado()
+
+        y = ALTO - 6.0 * cm
+
+    else:
+        y -= 1.0 * cm
+
+    resumen_x = margen_izquierdo
+    resumen_ancho = 8.5 * cm
+
+    pdf.setStrokeColor(azul)
 
     pdf.roundRect(
-        2 * cm,
+        resumen_x,
         y - alto_resumen,
-        8.5 * cm,
+        resumen_ancho,
         alto_resumen,
         5,
         stroke=1,
         fill=0
     )
 
-    # Título
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.setFillColor(colors.HexColor("#0B3A75"))
-
-    pdf.rect(
-        5.5 * cm,
+    pdf.setFillColor(azul)
+    pdf.roundRect(
+        resumen_x,
         y - 0.6 * cm,
-        8 * cm,
-        0.5 * cm,
-        fill=1,
-        stroke=0
+        resumen_ancho,
+        0.6 * cm,
+        5,
+        stroke=0,
+        fill=1
     )
 
     pdf.setFillColor(colors.white)
-
-    pdf.setFont("Helvetica-Bold",9)
+    pdf.setFont("Helvetica-Bold", 10)
 
     pdf.drawCentredString(
-        9.5 * cm,
-        y - 0.43 * cm,
+        resumen_x + resumen_ancho / 2,
+        y - 0.42 * cm,
         "RESUMEN DEL PERÍODO"
     )
 
-    # Contenido
     pdf.setFillColor(colors.black)
     pdf.setFont("Helvetica", 9)
 
     yy = y - 1.1 * cm
 
-    pdf.drawString(2.5 * cm, yy, "Total depósitos")
-    pdf.drawRightString(10 * cm, yy, f"S/ {total_depositos:,.2f}")
-
-    yy -= 0.55 * cm
-
-    pdf.drawString(2.5 * cm, yy, "Total retiros")
-    pdf.drawRightString(10 * cm, yy, f"S/ {total_retiros:,.2f}")
-
-    yy -= 0.55 * cm
-
-    pdf.drawString(2.5 * cm, yy, "Total transferencias")
-    pdf.drawRightString(10 * cm, yy, f"S/ {total_transferencias:,.2f}")
-
-    pdf.line(
-        2 * cm,
-        y,
-        19 * cm,
-        y
-    )
-
-    # ============================
-    # PIE DE PÁGINA
-    # ============================
-
-    pdf.setStrokeColor(colors.HexColor("#0B3A75"))
-    pdf.setLineWidth(0.8)
-
-    pdf.line(
-        2 * cm,
-        1.8 * cm,
-        19 * cm,
-        1.8 * cm
-    )
-
-    pdf.setFillColor(colors.black)
-    pdf.setFont("Helvetica-Oblique", 8)
-
-    pdf.drawCentredString(
-        ANCHO / 2,
-        1.3 * cm,
-        "Documento generado automáticamente por el Sistema Bancario"
+    # Total de depósitos
+    pdf.drawString(
+        resumen_x + 0.5 * cm,
+        yy,
+        "Total depósitos"
     )
 
     pdf.drawRightString(
-        19 * cm,
-        1.3 * cm,
-        "Página 1"
+        resumen_x + resumen_ancho - 0.5 * cm,
+        yy,
+        f"S/ {total_depositos:,.2f}"
     )
 
-    pdf.save()
-    return response
+    yy -= 0.48 * cm
 
+    # Total de retiros
+    pdf.drawString(
+        resumen_x + 0.5 * cm,
+        yy,
+        "Total retiros"
+    )
+
+    pdf.drawRightString(
+        resumen_x + resumen_ancho - 0.5 * cm,
+        yy,
+        f"S/ {total_retiros:,.2f}"
+    )
+
+    yy -= 0.48 * cm
+
+    # Transferencias recibidas
+    pdf.drawString(
+        resumen_x + 0.5 * cm,
+        yy,
+        "Transferencias recibidas"
+    )
+
+    pdf.drawRightString(
+        resumen_x + resumen_ancho - 0.5 * cm,
+        yy,
+        f"S/ {transferencias_recibidas:,.2f}"
+    )
+
+    yy -= 0.48 * cm
+
+    # Transferencias enviadas
+    pdf.drawString(
+        resumen_x + 0.5 * cm,
+        yy,
+        "Transferencias enviadas"
+    )
+
+    pdf.drawRightString(
+        resumen_x + resumen_ancho - 0.5 * cm,
+        yy,
+        f"S/ {transferencias_enviadas:,.2f}"
+    )
+
+    # ==========================================
+    # FINALIZAR PDF
+    # ==========================================
+
+    dibujar_pie_pagina(numero_pagina)
+
+    pdf.save()
+
+    return response

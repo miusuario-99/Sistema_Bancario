@@ -327,29 +327,25 @@ S/. {{ cuenta.saldo|floatformat:2 }}
 
 <td class="text-center">
 
-<a href="{% url 'editar_cuenta' cuenta.id %}"
+    <a href="{% url 'editar_cuenta' cuenta.id %}"
+       class="btn btn-warning btn-sm"
+       title="Editar cuenta">
+        <i class="bi bi-pencil-square"></i>
+    </a>
 
-class="btn btn-warning btn-sm"
+    {% if cuenta.estado == "A" %}
+    <form method="post"
+          action="{% url 'eliminar_cuenta' cuenta.id %}"
+          style="display: inline;">
+        {% csrf_token %}
 
-title="Editar">
-
-<i class="bi bi-pencil-square"></i>
-
-<form method="post"
-      action="{% url 'eliminar_cuenta' cuenta.id %}"
-      style="display: inline;">
-
-    {% csrf_token %}
-
-    <button type="submit"
-            class="btn btn-danger btn-sm btn-eliminar"
-            title="Eliminar">
-
-        <i class="bi bi-trash-fill"></i>
-
-    </button>
-
-</form>
+        <button type="submit"
+                class="btn btn-warning btn-sm btn-eliminar"
+                title="Desactivar cuenta">
+            <i class="bi bi-person-dash"></i>
+        </button>
+    </form>
+    {% endif %}
 
 </td>
 
@@ -437,24 +433,17 @@ document.querySelectorAll(".btn-eliminar").forEach(function(boton){
         const formulario = this.closest("form");
 
         Swal.fire({
-
-            title: "¿Eliminar cuenta?",
-
-            text: "Esta acción no se puede deshacer.",
-
+            title: "¿Desactivar cuenta?",
+            text: "La cuenta se conservará y su historial bancario no se eliminará.",
             icon: "warning",
-
             showCancelButton: true,
-
-            confirmButtonColor: "#d33",
-
+            confirmButtonColor: "#ffc107",
             cancelButtonColor: "#6c757d",
-
-            confirmButtonText: "Sí, eliminar",
-
+            confirmButtonText: "Sí, desactivar",
             cancelButtonText: "Cancelar"
+        })
 
-        }).then((result)=>{
+        .then((result)=>{
 
             if(result.isConfirmed){
 

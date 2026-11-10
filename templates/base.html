@@ -65,9 +65,8 @@
             Dashboard
         </a>
 
-<!-- ADMINISTRADOR -->
-
-{% if request.user|tiene_grupo:"Administrador" %}
+<!-- CLIENTES -->
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Cajero" %}
 
     <a href="{% url 'lista_clientes' %}"
        class="{% if request.resolver_match.url_name == 'lista_clientes' %}active{% endif %}">
@@ -75,11 +74,23 @@
         Clientes
     </a>
 
+{% endif %}
+
+
+<!-- CUENTAS -->
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Supervisor" or request.user|tiene_grupo:"Cajero" %}
+
     <a href="{% url 'lista_cuentas' %}"
        class="{% if request.resolver_match.url_name == 'lista_cuentas' %}active{% endif %}">
         <i class="bi bi-credit-card-2-front me-2"></i>
         Cuentas
     </a>
+
+{% endif %}
+
+
+<!-- DEPÓSITOS Y RETIROS -->
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Cajero" %}
 
     <a href="{% url 'deposito' %}"
        class="{% if request.resolver_match.url_name == 'deposito' %}active{% endif %}">
@@ -93,11 +104,23 @@
         Retiros
     </a>
 
+{% endif %}
+
+
+<!-- TRANSFERENCIAS -->
+{% if request.user|tiene_grupo:"Administrador" %}
+
     <a href="{% url 'transferencia' %}"
        class="{% if request.resolver_match.url_name == 'transferencia' %}active{% endif %}">
         <i class="bi bi-arrow-left-right me-2"></i>
         Transferencias
     </a>
+
+{% endif %}
+
+
+<!-- HISTORIAL -->
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Supervisor" or request.user|tiene_grupo:"Cajero" %}
 
     <a href="{% url 'historial' %}"
        class="{% if request.resolver_match.url_name == 'historial' %}active{% endif %}">
@@ -105,101 +128,35 @@
         Historial
     </a>
 
+{% endif %}
+
+
+<!-- REPORTES Y AUDITORÍA -->
+{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Supervisor" %}
+
+    <a href="{% url 'reportes' %}"
+       class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
+        <i class="bi bi-file-earmark-bar-graph me-2"></i>
+        Reportes
+    </a>
+
+    <a href="{% url 'lista_auditoria' %}"
+       class="{% if request.resolver_match.url_name == 'lista_auditoria' %}active{% endif %}">
+        <i class="bi bi-shield-check me-2"></i>
+        Auditoría
+    </a>
+
+{% endif %}
+
+
+<!-- ADMINISTRACIÓN DE USUARIOS -->
+{% if request.user|tiene_grupo:"Administrador" %}
+
     <a href="{% url 'lista_usuarios' %}"
        class="{% if request.resolver_match.url_name == 'lista_usuarios' or request.resolver_match.url_name == 'crear_usuario' or request.resolver_match.url_name == 'cambiar_estado_usuario' %}active{% endif %}">
         <i class="bi bi-person-gear me-2"></i>
         Usuarios
     </a>
-
-{% endif %}
-
-<!-- REPORTES Y AUDITORÍA -->
-
-{% if request.user|tiene_grupo:"Administrador" or request.user|tiene_grupo:"Supervisor" %}
-
-    <a href="{% url 'reportes' %}"
-       class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
-
-        <i class="bi bi-file-earmark-bar-graph me-2"></i>
-        Reportes
-
-    </a>
-
-    <a href="{% url 'lista_auditoria' %}"
-       class="{% if request.resolver_match.url_name == 'lista_auditoria' %}active{% endif %}">
-
-        <i class="bi bi-shield-check me-2"></i>
-        Auditoría
-
-    </a>
-
-{% endif %}
-
-<!-- CAJERO -->
-
-{% if user|tiene_grupo:"Cajero" %}
-
-<a href="{% url 'lista_clientes' %}">
-
-<i class="bi bi-people-fill"></i>
-
-Clientes
-
-</a>
-
-<a href="{% url 'lista_cuentas' %}">
-
-<i class="bi bi-credit-card"></i>
-
-Cuentas
-
-</a>
-
-<a href="{% url 'deposito' %}">
-
-<i class="bi bi-cash"></i>
-
-Depósitos
-
-</a>
-
-<a href="{% url 'retiro' %}">
-
-<i class="bi bi-cash-stack"></i>
-
-Retiros
-
-</a>
-
-<a href="{% url 'transferencia' %}">
-
-<i class="bi bi-arrow-left-right"></i>
-
-Transferencias
-
-</a>
-
-<a href="{% url 'historial' %}">
-
-<i class="bi bi-clock"></i>
-
-Historial
-
-</a>
-
-{% endif %}
-
-<!-- SUPERVISOR -->
-
-{% if user|tiene_grupo:"Supervisor" %}
-
-<a href="{% url 'historial' %}">
-
-<i class="bi bi-clock-history"></i>
-
-Historial
-
-</a>
 
 {% endif %}
 

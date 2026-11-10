@@ -22,7 +22,7 @@ class Cuenta(models.Model):
 
     cliente = models.ForeignKey(
         Cliente,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="cuentas"
     )
 
@@ -57,3 +57,19 @@ class Cuenta(models.Model):
 
     def __str__(self):
         return f"{self.numero_cuenta} - {self.cliente}"
+
+class CorrelativoCuenta(models.Model):
+
+    clave = models.CharField(
+        max_length=20,
+        primary_key=True,
+        default="cuenta",
+        editable=False
+    )
+
+    ultimo_numero = models.PositiveIntegerField(
+        default=0
+    )
+
+    def __str__(self):
+        return f"Correlativo de cuentas: {self.ultimo_numero}"

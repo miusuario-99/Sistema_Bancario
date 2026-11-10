@@ -10,7 +10,7 @@ from reportlab.platypus import (
     TableStyle,
     KeepTogether,
 )
-from django.db.models import Sum, Avg, Max, Min
+from django.db.models import Sum, Avg, Max, Min, Count, Q
 from clientes.models import Cliente
 from cuentas.models import Cuenta
 from movimientos.models import Movimiento
@@ -111,21 +111,17 @@ def reporte_dashboard_pdf(request):
     total_clientes = Cliente.objects.count()
     total_cuentas = Cuenta.objects.count()
 
-    saldo_total = (
-        Cuenta.objects.aggregate(total=Sum("saldo"))["total"] or 0
+    resumen_saldos = Cuenta.objects.aggregate(
+        total=Sum("saldo"),
+        promedio=Avg("saldo"),
+        maximo=Max("saldo"),
+        minimo=Min("saldo"),
     )
 
-    saldo_promedio = (
-        Cuenta.objects.aggregate(promedio=Avg("saldo"))["promedio"] or 0
-    )
-
-    mayor_saldo = (
-        Cuenta.objects.aggregate(maximo=Max("saldo"))["maximo"] or 0
-    )
-
-    menor_saldo = (
-        Cuenta.objects.aggregate(minimo=Min("saldo"))["minimo"] or 0
-    )
+    saldo_total = resumen_saldos["total"] or 0
+    saldo_promedio = resumen_saldos["promedio"] or 0
+    mayor_saldo = resumen_saldos["maximo"] or 0
+    menor_saldo = resumen_saldos["minimo"] or 0
 
     datos = [
 
@@ -167,8 +163,6 @@ def reporte_dashboard_pdf(request):
 
     )
 
-    tabla = Table(datos)
-
     elementos.append(tabla)
 
     doc.build(
@@ -195,21 +189,17 @@ def reporte_dashboard_excel(request):
     total_clientes = Cliente.objects.count()
     total_cuentas = Cuenta.objects.count()
 
-    saldo_total = Cuenta.objects.aggregate(
-        total=Sum("saldo")
-    )["total"] or 0
+    resumen_saldos = Cuenta.objects.aggregate(
+        total=Sum("saldo"),
+        promedio=Avg("saldo"),
+        maximo=Max("saldo"),
+        minimo=Min("saldo"),
+    )
 
-    saldo_promedio = Cuenta.objects.aggregate(
-        promedio=Avg("saldo")
-    )["promedio"] or 0
-
-    mayor_saldo = Cuenta.objects.aggregate(
-        maximo=Max("saldo")
-    )["maximo"] or 0
-
-    menor_saldo = Cuenta.objects.aggregate(
-        minimo=Min("saldo")
-    )["minimo"] or 0
+    saldo_total = resumen_saldos["total"] or 0
+    saldo_promedio = resumen_saldos["promedio"] or 0
+    mayor_saldo = resumen_saldos["maximo"] or 0
+    menor_saldo = resumen_saldos["minimo"] or 0
 
     ws.append(["Clientes", total_clientes])
     ws.append(["Cuentas", total_cuentas])
@@ -578,7 +568,7 @@ def reporte_clientes_excel(request):
 
     total_clientes = clientes.count()
 
-    ws.auto_filter.ref = f"A1:J{total_clientes + 1}"
+    ws.auto_filter.ref = f"A3:J{total_clientes + 3}"
 
     # ============================
     # CONGELAR TÍTULO Y ENCABEZADOS
@@ -702,27 +692,59 @@ def reporte_cuentas_pdf(request):
     elementos.append(tabla)
     elementos.append(Spacer(1, 12))
 
-    total_cuentas = cuentas.count()
-
-    saldo_total = (
-        cuentas.aggregate(total=Sum("saldo"))["total"] or 0
+    resumen_cuentas = cuentas.aggregate(
+        total=Count("id"),
+        activas=Count("id", filter=Q(estado="A")),
+        inactivas=Count("id", filter=Q(estado="I")),
+        saldo=Sum("saldo"),
     )
+
+    total_cuentas = resumen_cuentas["total"]
+    total_activas = resumen_cuentas["activas"]
+    total_inactivas = resumen_cuentas["inactivas"]
+    saldo_total = resumen_cuentas["saldo"] or 0
+
+    elementos.append(Spacer(1, 12))
+
+    resumen = [
+        ["Concepto", "Cantidad / Importe"],
+        ["Total de cuentas registradas", str(total_cuentas)],
+        ["Cuentas activas", str(total_activas)],
+        ["Cuentas inactivas", str(total_inactivas)],
+        ["Saldo total", f"S/. {saldo_total:,.2f}"],
+    ]
+
+    tabla_resumen = Table(
+        resumen,
+        colWidths=[8 * cm, 6 * cm],
+        hAlign="LEFT",
+    )
+
+    tabla_resumen.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0B3A75")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        (
+            "ROWBACKGROUNDS",
+            (0, 1),
+            (-1, -1),
+            [colors.white, colors.HexColor("#EAF2F8")],
+        ),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
 
     elementos.append(
-        Paragraph(
-            f"<b>Total de cuentas registradas:</b> {total_cuentas}",
-            estilos["Normal"],
-        )
+        Paragraph("<b>RESUMEN FINANCIERO</b>", getSampleStyleSheet()["Heading3"])
     )
-
     elementos.append(Spacer(1, 6))
-
-    elementos.append(
-        Paragraph(
-            f"<b>Saldo total:</b> S/. {saldo_total:,.2f}",
-            estilos["Normal"],
-        )
-    )
+    elementos.append(tabla_resumen)
 
     doc.build(
         elementos,
@@ -862,25 +884,36 @@ def reporte_movimientos_pdf(request):
     # RESUMEN FINANCIERO
     # ============================
 
-    total_movimientos = movimientos.count()
+    resumen_movimientos = movimientos.aggregate(
+        cantidad=Count("id"),
+        total=Sum("monto"),
+        depositos=Sum("monto", filter=Q(tipo="D")),
+        retiros=Sum("monto", filter=Q(tipo="R")),
+        transferencias=Sum(
+            "monto",
+            filter=Q(
+                tipo="T",
+                descripcion__startswith="Transferencia a "
+            )
+        ),
+    )
+
+    total_movimientos = resumen_movimientos["cantidad"]
 
     total_montos = (
-        movimientos.aggregate(total=Sum("monto"))["total"] or 0
+        resumen_movimientos["total"] or Decimal("0.00")
     )
 
     total_depositos = (
-        movimientos.filter(tipo="D")
-        .aggregate(total=Sum("monto"))["total"] or 0
+        resumen_movimientos["depositos"] or Decimal("0.00")
     )
 
     total_retiros = (
-        movimientos.filter(tipo="R")
-        .aggregate(total=Sum("monto"))["total"] or 0
+        resumen_movimientos["retiros"] or Decimal("0.00")
     )
 
     total_transferencias = (
-        movimientos.filter(tipo="T")
-        .aggregate(total=Sum("monto"))["total"] or 0
+        resumen_movimientos["transferencias"] or Decimal("0.00")
     )
 
     estilos = getSampleStyleSheet()
@@ -900,11 +933,14 @@ def reporte_movimientos_pdf(request):
 
     resumen = [
         ["Concepto", "Cantidad / Importe"],
-        ["Total de movimientos", str(total_movimientos)],
-        ["Suma de montos", f"S/. {total_montos:,.2f}"],
+        ["Total de movimientos registrados", str(total_movimientos)],
+        ["Suma de importes de los movimientos", f"S/. {total_montos:,.2f}"],
         ["Total de depósitos", f"S/. {total_depositos:,.2f}"],
         ["Total de retiros", f"S/. {total_retiros:,.2f}"],
-        ["Total de transferencias", f"S/. {total_transferencias:,.2f}"],
+        [
+            "Transferencias (importe contado una vez)",
+            f"S/. {total_transferencias:,.2f}"
+        ],
     ]
 
     tabla_resumen = Table(
@@ -1079,11 +1115,7 @@ def reporte_movimientos_excel(request):
     # Guardar la última fila que contiene movimientos
     ultima_fila_datos = ws.max_row
 
-    # Última fila que contiene movimientos, sin incluir el resumen
-    ultima_fila_datos = ws.max_row
-
     # EL RESUMEN VA FUERA DEL BUCLE FOR
-
     total_movimientos = movimientos.count()
 
     total_depositos = (
@@ -1097,14 +1129,16 @@ def reporte_movimientos_excel(request):
     )
 
     total_transferencias = (
-        movimientos.filter(tipo="T")
+        movimientos.filter(
+            tipo="T",
+            descripcion__startswith="Transferencia a "
+        )
         .aggregate(total=Sum("monto"))["total"] or Decimal("0.00")
     )
 
     total_montos = (
-        total_depositos
-        + total_retiros
-        + total_transferencias
+        movimientos.aggregate(total=Sum("monto"))["total"]
+        or Decimal("0.00")
     )
 
     ws.append([])
@@ -1149,8 +1183,6 @@ def reporte_movimientos_excel(request):
     # ============================
     # ESTILO DEL RESUMEN FINANCIERO
     # ============================
-
-    from openpyxl.styles import Border, Side
 
     fila_inicio_resumen = ws.max_row - 4
     fila_fin_resumen = ws.max_row
@@ -1207,10 +1239,10 @@ def reporte_movimientos_excel(request):
 
     for celda in ws[3]:
 
-        celda.font = celda.font.copy(
-            bold=True,
-            color="FFFFFF"
-        )
+        fuente = copy(celda.font)
+        fuente.bold = True
+        fuente.color = "FFFFFF"
+        celda.font = fuente
 
         celda.fill = PatternFill(
             fill_type="solid",
@@ -1356,18 +1388,17 @@ def reporte_cuentas_excel(request):
     # ============================
     # RESUMEN DE CUENTAS
     # ============================
-
-    from decimal import Decimal
-
-    total_cuentas = cuentas.count()
-
-    total_activas = cuentas.filter(estado="A").count()
-    total_inactivas = cuentas.filter(estado="I").count()
-
-    saldo_total = sum(
-        (cuenta.saldo for cuenta in cuentas),
-        Decimal("0.00")
+    resumen_cuentas = cuentas.aggregate(
+        total=Count("id"),
+        activas=Count("id", filter=Q(estado="A")),
+        inactivas=Count("id", filter=Q(estado="I")),
+        saldo=Sum("saldo"),
     )
+
+    total_cuentas = resumen_cuentas["total"]
+    total_activas = resumen_cuentas["activas"]
+    total_inactivas = resumen_cuentas["inactivas"]
+    saldo_total = resumen_cuentas["saldo"] or Decimal("0.00")
 
     ws.append([])  # Dejar una fila en blanco antes del resumen
 

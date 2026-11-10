@@ -10,6 +10,11 @@ class AuditoriaQuerySet(models.QuerySet):
             "Los registros de auditoría no se pueden modificar."
         )
 
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValidationError(
+            "Los registros de auditoría no se pueden modificar."
+        )
+
     def delete(self):
         raise ValidationError(
             "Los registros de auditoría no se pueden eliminar."

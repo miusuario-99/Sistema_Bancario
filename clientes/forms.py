@@ -60,16 +60,21 @@ class ClienteForm(forms.ModelForm):
         }
 
     def clean_dni(self):
-        dni = self.cleaned_data["dni"]
-
-        if not dni.isdigit():
-            raise forms.ValidationError(
-                "El DNI solo debe contener números."
-            )
-
-        if len(dni) != 8:
-            raise forms.ValidationError(
-                "El DNI debe tener exactamente 8 dígitos."
-            )
-
+        dni = self.cleaned_data["dni"].strip()
         return dni
+
+    def clean_correo(self):
+        correo = self.cleaned_data["correo"].strip().lower()
+
+        existe = Cliente.objects.filter(
+            correo__iexact=correo
+        ).exclude(
+            pk=self.instance.pk
+        ).exists()
+
+        if existe:
+            raise forms.ValidationError(
+                "Este correo electrónico ya está registrado."
+            )
+
+        return correo

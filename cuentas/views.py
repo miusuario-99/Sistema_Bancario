@@ -2,13 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Cuenta
+from .models import Cuenta, CorrelativoCuenta
 from clientes.models import Cliente
 from .forms import CuentaForm
-import re
 from django.db.models import Sum
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment, Font
 from django.http import HttpResponse
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -25,7 +23,9 @@ from datetime import datetime
 import os
 from auditoria.utils import registrar_auditoria
 from usuarios.decorators import grupos_permitidos
-from movimientos.models import Movimiento
+from decimal import Decimal
+from django.db import transaction
+from django.db import IntegrityError
 
 # ==========================
 # LISTAR CUENTAS
@@ -79,18 +79,13 @@ def lista_cuentas(request):
     )["total"] or 0
 
     return render(request, "cuentas/lista.html", {
-
-    "page_obj": page_obj,
-
-    "query": query,
-
-    "total_cuentas": total_cuentas,
-
-    "cuentas_activas": cuentas_activas,
-
-    "saldo_total": saldo_total,
-
-})
+        "page_obj": page_obj,
+        "query": query,
+        "total_cuentas": total_cuentas,
+        "cuentas_activas": cuentas_activas,
+        "cuentas_inactivas": cuentas_inactivas,
+        "saldo_total": saldo_total,
+    })
 
     # ==========================
     # NUEVA CUENTA
@@ -99,53 +94,55 @@ def lista_cuentas(request):
 @grupos_permitidos("Administrador")
 def nueva_cuenta(request):
 
-    # Buscar el mayor número de las cuentas con formato CTA-000001
-    mayor = 0
-
-    for cuenta in Cuenta.objects.all():
-
-        m = re.match(r"CTA-(\d{6})$", cuenta.numero_cuenta)
-
-        if m:
-
-            numero = int(m.group(1))
-
-            if numero > mayor:
-                mayor = numero
-
-    numero_generado = f"CTA-{mayor + 1:06d}"
-
     if request.method == "POST":
 
         form = CuentaForm(request.POST)
 
         if form.is_valid():
 
-            cuenta = form.save(commit=False)
-            cuenta.numero_cuenta = numero_generado
-            cuenta.save()
+            try:
+                with transaction.atomic():
 
-            registrar_auditoria(
-                request,
-                "Cuentas",
-                "Nueva cuenta",
-                f"Cuenta {cuenta.numero_cuenta} creada para {cuenta.cliente}"
-            )
+                    contador = (
+                        CorrelativoCuenta.objects
+                        .select_for_update()
+                        .get(clave="cuenta")
+                    )
 
-            messages.success(
-                request,
-                "Cuenta creada correctamente."
-            )
+                    contador.ultimo_numero += 1
+                    numero_generado = f"CTA-{contador.ultimo_numero:06d}"
 
-            return redirect("lista_cuentas")
+                    contador.save(update_fields=["ultimo_numero"])
+
+                    cuenta = form.save(commit=False)
+                    cuenta.numero_cuenta = numero_generado
+                    cuenta.saldo = Decimal("0.00")
+                    cuenta.save()
+
+                    registrar_auditoria(
+                        request,
+                        "Cuentas",
+                        "Nueva cuenta",
+                        f"Cuenta {cuenta.numero_cuenta} creada para {cuenta.cliente}"
+                    )
+
+                messages.success(
+                    request,
+                    "Cuenta creada correctamente."
+                )
+
+                return redirect("lista_cuentas")
+
+            except IntegrityError:
+
+                messages.error(
+                    request,
+                    "No se pudo crear la cuenta por un conflicto de integridad. Intente nuevamente."
+                )
 
     else:
 
-        form = CuentaForm(
-            initial={
-                "numero_cuenta": numero_generado
-            }
-        )
+        form = CuentaForm()
 
     return render(
         request,
@@ -163,44 +160,63 @@ def nueva_cuenta(request):
 @grupos_permitidos("Administrador")
 def editar_cuenta(request, id):
 
-    cuenta = get_object_or_404(
-        Cuenta,
-        id=id
-    )
+    try:
+        with transaction.atomic():
 
+            cuenta = get_object_or_404(
+                Cuenta.objects.select_for_update(),
+                id=id
+            )
 
-    if request.method == "POST":
+            # No permitir editar cuentas inactivas.
+            if cuenta.estado == "I":
+                messages.error(
+                    request,
+                    "No se puede editar una cuenta inactiva."
+                )
+                return redirect("lista_cuentas")
 
-        form = CuentaForm(
-            request.POST,
-            instance=cuenta
+            if request.method == "POST":
+
+                form = CuentaForm(
+                    request.POST,
+                    instance=cuenta
+                )
+
+                if form.is_valid():
+
+                    cuenta_actualizada = form.save(commit=False)
+
+                    # Conservar los valores protegidos.
+                    cuenta_actualizada.numero_cuenta = cuenta.numero_cuenta
+                    cuenta_actualizada.saldo = cuenta.saldo
+                    cuenta_actualizada.estado = cuenta.estado
+
+                    cuenta_actualizada.save()
+
+                    registrar_auditoria(
+                        request,
+                        "Cuentas",
+                        "Editar cuenta",
+                        f"Cuenta {cuenta.numero_cuenta}"
+                    )
+
+                    messages.success(
+                        request,
+                        "Cuenta actualizada correctamente."
+                    )
+
+                    return redirect("lista_cuentas")
+
+            else:
+                form = CuentaForm(instance=cuenta)
+
+    except IntegrityError:
+        messages.error(
+            request,
+            "No se pudo actualizar la cuenta por un conflicto de integridad."
         )
-
-        if form.is_valid():
-
-            form.save()
-
-            registrar_auditoria(
-                request,
-                "Cuentas",
-                "Editar cuenta",
-                f"Cuenta {cuenta.numero_cuenta}"
-            )
-
-            messages.success(
-                request,
-                "Cuenta actualizada correctamente."
-            )
-
-            return redirect(
-                "lista_cuentas"
-            )
-
-    else:
-
-        form = CuentaForm(
-            instance=cuenta
-        )
+        return redirect("lista_cuentas")
 
     return render(
         request,
@@ -217,37 +233,64 @@ def eliminar_cuenta(request, id):
     if request.method != "POST":
         messages.error(
             request,
-            "La eliminación requiere una solicitud POST."
+            "La desactivación requiere una solicitud POST."
         )
         return redirect("lista_cuentas")
+    try:
 
-    cuenta = get_object_or_404(Cuenta, id=id)
+        with transaction.atomic():
 
-    # No eliminar cuentas que tengan historial bancario
-    if Movimiento.objects.filter(cuenta=cuenta).exists():
+            cuenta = get_object_or_404(
+                Cuenta.objects.select_for_update(),
+                id=id
+            )
+
+            # Comprobar si la cuenta ya está inactiva.
+            if cuenta.estado == "I":
+                messages.warning(
+                    request,
+                    "La cuenta ya se encuentra inactiva."
+                )
+                return redirect("lista_cuentas")
+
+            # No desactivar cuentas que tengan saldo pendiente.
+            if cuenta.saldo != Decimal("0.00"):
+                messages.error(
+                    request,
+                    f"No se puede desactivar la cuenta "
+                    f"{cuenta.numero_cuenta} porque tiene un saldo "
+                    f"de S/ {cuenta.saldo:.2f}. "
+                    "El saldo debe ser cero."
+                )
+                return redirect("lista_cuentas")
+
+            numero_cuenta = cuenta.numero_cuenta
+            cliente = cuenta.cliente
+
+            # Registrar la operación en auditoría.
+            registrar_auditoria(
+                request,
+                "Cuentas",
+                "Desactivar cuenta",
+                f"Cuenta {numero_cuenta} desactivada. "
+                f"Cliente: {cliente}. Saldo: S/ {cuenta.saldo:.2f}"
+            )
+
+            # Desactivación lógica: no se elimina el registro.
+            cuenta.estado = "I"
+            cuenta.save(update_fields=["estado"])
+
+    except IntegrityError:
         messages.error(
             request,
-            "No se puede eliminar esta cuenta porque "
-            "tiene movimientos registrados. "
-            "Debe conservarse su historial bancario."
+            "No se pudo desactivar la cuenta por un conflicto de integridad."
         )
         return redirect("lista_cuentas")
-
-    numero_cuenta = cuenta.numero_cuenta
-    cliente = cuenta.cliente
-
-    registrar_auditoria(
-        request,
-        "Cuentas",
-        "Eliminar cuenta",
-        f"Cuenta {numero_cuenta} eliminada. Cliente: {cliente}"
-    )
-
-    cuenta.delete()
 
     messages.success(
         request,
-        "Cuenta eliminada correctamente."
+        f"La cuenta {numero_cuenta} se desactivó correctamente. "
+        "Su historial bancario se ha conservado."
     )
 
     return redirect("lista_cuentas")
@@ -259,8 +302,6 @@ def eliminar_cuenta(request, id):
 def exportar_cuentas_excel(request):
 
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    from copy import copy
 
     wb = Workbook()
     ws = wb.active
@@ -277,7 +318,7 @@ def exportar_cuentas_excel(request):
         "Estado",
     ])
 
-    cuentas = (
+    cuentas = list(
         Cuenta.objects
         .select_related("cliente")
         .order_by("numero_cuenta")
@@ -339,17 +380,22 @@ def exportar_cuentas_excel(request):
                 vertical="center"
             )
 
+    total_saldo = sum(
+        (cuenta.saldo for cuenta in cuentas),
+        Decimal("0.00")
+    )
+
     # RESUMEN
     fila_resumen = ultima_fila + 2
 
+    ws.cell(fila_resumen + 1, 5, float(total_saldo))
+
     ws.cell(fila_resumen, 1, "Total de cuentas:")
-    ws.cell(fila_resumen, 2, cuentas.count())
+    ws.cell(fila_resumen, 2, len(cuentas))
 
     ws.cell(fila_resumen + 1, 1, "Saldo total:")
     ws.cell(fila_resumen + 1, 5,
-            float(cuentas.aggregate(
-                total=Sum("saldo")
-            )["total"] or 0))
+            float(total_saldo))
 
     ws.cell(
         fila_resumen + 1, 5
@@ -399,9 +445,6 @@ def exportar_cuentas_excel(request):
 
 @grupos_permitidos("Administrador", "Supervisor")
 def exportar_cuentas_pdf(request):
-
-    print(">>> EXPORTANDO CUENTAS PDF <<<")
-
     response = HttpResponse(content_type="application/pdf")
 
     response["Content-Disposition"] = (
@@ -474,11 +517,11 @@ def exportar_cuentas_pdf(request):
     # ==========================
 
     datos = [[
-        "N°",
-        "Cuenta",
+        "N.º",
+        "Número de cuenta",
         "Cliente",
-        "Tipo",
-        "Saldo",
+        "Tipo de cuenta",
+        "Saldo (S/)",
         "Estado"
     ]]
 
@@ -486,10 +529,10 @@ def exportar_cuentas_pdf(request):
         Cuenta.objects.select_related("cliente")
     )
 
-    cuentas.sort(
-        key=lambda cuenta: int(
-            cuenta.numero_cuenta.replace("CTA-", "")
-        )
+    cuentas = list(
+        Cuenta.objects
+        .select_related("cliente")
+        .order_by("numero_cuenta")
     )
 
     contador = 1
@@ -507,7 +550,11 @@ def exportar_cuentas_pdf(request):
 
         contador += 1
 
-    tabla = Table(datos, repeatRows=1)
+    tabla = Table(
+        datos,
+        repeatRows=1,
+        colWidths=[30, 95, 125, 75, 65, 60]
+    )
 
     tabla.setStyle(TableStyle([
 
@@ -515,8 +562,13 @@ def exportar_cuentas_pdf(request):
         ("TEXTCOLOR",(0,0),(-1,0),colors.white),
         ("GRID",(0,0),(-1,-1),0.5,colors.grey),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),
+        ("FONTSIZE",(0,0),(-1,-1),9),
         ("BOTTOMPADDING",(0,0),(-1,0),10),
+        ("TOPPADDING",(0,0),(-1,-1),8),
+        ("BOTTOMPADDING",(0,1),(-1,-1),8),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.whitesmoke, colors.white]),
 
     ]))
 

@@ -10,30 +10,47 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# Clave secreta: debe estar definida en el entorno.
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True").lower() == "true"
-# Seguridad para producción
-if not DEBUG:
+if not SECRET_KEY:
+    raise RuntimeError(
+        "Debes definir la variable de entorno SECRET_KEY."
+    )
 
+# DEBUG:
+# Si no se define la variable, se desactiva por seguridad.
+DEBUG = os.getenv("DEBUG", "False").strip().lower() == "true"
+
+# Hosts autorizados.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "127.0.0.1,localhost"
+    ).split(",")
+    if host.strip()
+]
+
+# Opciones de seguridad para producción.
+if not DEBUG:
     SECURE_SSL_REDIRECT = True
 
     SESSION_COOKIE_SECURE = True
-
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
     CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_SAMESITE = "Lax"
 
+    # HSTS: habilitar cuando HTTPS esté correctamente configurado.
     SECURE_HSTS_SECONDS = 31536000
 
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # Habilitar solo si todos los subdominios usan HTTPS.
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 
-    SECURE_HSTS_PRELOAD = True
-
-ALLOWED_HOSTS = os.getenv(
-    "ALLOWED_HOSTS",
-    "127.0.0.1,localhost"
-).split(",")
+    # Mantener deshabilitada la precarga hasta verificar los requisitos.
+    SECURE_HSTS_PRELOAD = False
 
 
 # Application definition
@@ -51,6 +68,8 @@ INSTALLED_APPS = [
     'usuarios',
     'reportes',
     "auditoria.apps.AuditoriaConfig",
+    # Seguridad de autenticación
+    "axes",
 
 ]
 
@@ -60,6 +79,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "axes.middleware.AxesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -89,12 +109,15 @@ WSGI_APPLICATION = "banco.wsgi.application"
 
 DATABASES = {
     "default": {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'banco_db',
-        'USER': 'root',
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "banco_db",
+        "USER": "root",
         "PASSWORD": os.getenv("DB_PASSWORD"),
-        'HOST': 'localhost',
-        'PORT': '3306',
+        "HOST": "localhost",
+        "PORT": "3306",
+        "TEST": {
+            "NAME": "test_concurrencia_admin_2026",
+        },
     }
 }
 
@@ -107,7 +130,10 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    "OPTIONS": {
+        "min_length": 12,
+    },
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -196,3 +222,26 @@ LOGGING = {
         },
     },
 }
+
+# --------------------------------------------------
+# SEGURIDAD: PROTECCIÓN CONTRA INTENTOS DE ACCESO
+# --------------------------------------------------
+
+AXES_FAILURE_LIMIT = 5
+
+AXES_COOLOFF_TIME = 15 / 60  # 15 minutos
+
+AXES_RESET_ON_SUCCESS = True
+
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+
+AXES_LOCKOUT_CALLABLE = None
+
+# --------------------------------------------------
+# BACKENDS DE AUTENTICACIÓN
+# --------------------------------------------------
+
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
