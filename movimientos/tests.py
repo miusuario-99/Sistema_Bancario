@@ -1186,15 +1186,21 @@ class TransferenciasConcurrentesTests(TransactionTestCase):
                         follow=True,
                     )
 
+                    contenido = respuesta.content.decode("utf-8", errors="replace")
+
                     with bloqueo_resultados:
                         resultados.append({
                             "destino": numero_destino,
                             "status": respuesta.status_code,
                             "redirect_chain": respuesta.redirect_chain,
                             "url_final": respuesta.request.get("PATH_INFO"),
-                            "contenido": respuesta.content.decode(
-                                "utf-8", errors="replace"
-                            )[:500],
+                            "mensaje_exito": (
+                                "Transferencia realizada correctamente." in contenido
+                            ),
+                            "mensaje_rechazo": (
+                                "Saldo insuficiente en la cuenta origen." in contenido
+                            ),
+                            "contenido": contenido[:500],
                         })
 
                 except Exception as error:
@@ -1358,15 +1364,28 @@ class TransferenciasConcurrentesTests(TransactionTestCase):
             for resultado in resultados:
                 print(resultado)
 
-            # Debe existir exactamente una transferencia aceptada.
+            # Deben existir exactamente dos respuestas.
+            self.assertEqual(len(resultados), 2)
+
+            # Exactamente una transferencia debe ser exitosa.
             self.assertEqual(
-                sum(
-                    resultado["status"] == 200
-                    for resultado in resultados
-                ),
-                2,
-                "Ambas solicitudes deben finalizar con una respuesta HTTP válida."
+                sum(resultado["mensaje_exito"] for resultado in resultados),
+                1,
+                "Debe existir exactamente una transferencia exitosa."
             )
+
+            # La otra transferencia debe rechazarse por saldo insuficiente.
+            self.assertEqual(
+                sum(resultado["mensaje_rechazo"] for resultado in resultados),
+                1,
+                "Debe existir exactamente un rechazo por saldo insuficiente."
+            )
+
+            # Ambas solicitudes deben finalizar correctamente a nivel HTTP.
+            self.assertTrue(
+                all(resultado["status"] == 200 for resultado in resultados)
+            )
+
 class ResumenTransferenciasReportesTests(TestCase):
 
     @classmethod
