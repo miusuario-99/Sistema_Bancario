@@ -24,8 +24,10 @@ class CuentaForm(forms.ModelForm):
                 | Cliente.objects.filter(pk=cliente_actual.pk)
             )
 
-            # El saldo no se puede modificar al editar.
+            # Estos campos no se pueden modificar al editar una cuenta.
+            self.fields["numero_cuenta"].disabled = True
             self.fields["saldo"].disabled = True
+            self.fields["estado"].disabled = True
 
         else:
             self.fields["cliente"].queryset = clientes_activos

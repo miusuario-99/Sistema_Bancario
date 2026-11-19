@@ -6,6 +6,8 @@ from cuentas.models import Cuenta
 from auditoria.models import Auditoria
 from django.core.exceptions import ValidationError
 from .forms import ClienteForm
+from clientes.models import Cliente
+from unittest.mock import patch
 
 class SeguridadClientesTests(TestCase):
 
@@ -164,15 +166,12 @@ class SeguridadClientesTests(TestCase):
             respuesta["Content-Type"]
         )
 
-    def test_supervisor_puede_exportar_pdf(self):
+    def test_supervisor_no_puede_exportar_pdf(self):
         self.client.force_login(self.supervisor)
+
         respuesta = self.client.get(reverse("clientes_pdf"))
 
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(
-            respuesta["Content-Type"],
-            "application/pdf"
-        )
+        self.assertEqual(respuesta.status_code, 403)
 
     def test_usuario_sin_sesion_no_puede_listar(self):
         respuesta = self.client.get(reverse("lista_clientes"))
@@ -216,6 +215,95 @@ class SeguridadClientesTests(TestCase):
             registro,
             "No se encontró la auditoría de desactivación."
         )
+
+    def test_cajero_puede_exportar_pdf(self):
+        self.client.force_login(self.cajero)
+
+        respuesta = self.client.get(reverse("clientes_pdf"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(
+            respuesta["Content-Type"],
+            "application/pdf"
+        )
+        self.assertTrue(respuesta.content.startswith(b"%PDF"))
+
+    def test_pdf_escapa_caracteres_especiales(self):
+        cliente = Cliente.objects.get(dni="88888888")
+        cliente.nombres = "<script>alert('prueba')</script>"
+        cliente.save(update_fields=["nombres"])
+
+        self.client.force_login(self.cajero)
+
+        respuesta = self.client.get(reverse("clientes_pdf"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(
+            respuesta["Content-Type"],
+            "application/pdf"
+        )
+        self.assertTrue(respuesta.content.startswith(b"%PDF"))
+
+    def test_pdf_incluye_telefono_y_correo_cliente(self):
+        self.client.force_login(self.cajero)
+
+        respuesta = self.client.get(reverse("clientes_pdf"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn(b"%PDF", respuesta.content)
+
+        # Comprobar que el contenido del PDF incluye los datos.
+        from pypdf import PdfReader
+        from io import BytesIO
+
+        lector = PdfReader(BytesIO(respuesta.content))
+        texto_pdf = "\n".join(
+            pagina.extract_text() or ""
+            for pagina in lector.pages
+        )
+
+        self.assertIn("999999999", texto_pdf)
+        self.assertIn("cliente_prueba@example.com", texto_pdf)
+
+    def test_excel_no_interpreta_datos_como_formulas(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        self.cliente.nombres = "=1+1"
+        self.cliente.save(update_fields=["nombres"])
+
+        self.client.force_login(self.cajero)
+        respuesta = self.client.get(reverse("clientes_excel"))
+
+        self.assertEqual(respuesta.status_code, 200)
+
+        libro = load_workbook(
+            BytesIO(respuesta.content),
+            data_only=False
+        )
+        hoja = libro.active
+
+        self.assertEqual(hoja["C2"].value, "=1+1")
+        self.assertEqual(hoja["C2"].data_type, "s")
+
+    def test_fecha_nacimiento_futura_es_rechazada(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.core.exceptions import ValidationError
+
+        cliente = Cliente(
+            dni="12345678",
+            nombres="Prueba",
+            apellidos="Fecha",
+            fecha_nacimiento=timezone.localdate() + timedelta(days=1),
+            direccion="Lima",
+            telefono="999999999",
+            correo="fecha_prueba@example.com",
+            estado="A",
+        )
+
+        with self.assertRaises(ValidationError):
+            cliente.full_clean()
 
 class ValidacionDNIClientesTests(TestCase):
 
@@ -478,3 +566,99 @@ class EdicionCorreoClienteTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("correo", form.errors)
+
+class TransaccionesClientesTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.grupo_admin, _ = Group.objects.get_or_create(
+            name="Administrador"
+        )
+
+        cls.grupo_cajero, _ = Group.objects.get_or_create(
+            name="Cajero"
+        )
+
+        cls.admin = User.objects.create_user(
+            username="admin_transacciones_clientes",
+            password="PruebaSegura123"
+        )
+        cls.admin.groups.add(cls.grupo_admin)
+
+        cls.cajero = User.objects.create_user(
+            username="cajero_transacciones_clientes",
+            password="PruebaSegura123"
+        )
+        cls.cajero.groups.add(cls.grupo_cajero)
+
+        cls.cliente = Cliente.objects.create(
+            dni="77777777",
+            nombres="Juan",
+            apellidos="Perez",
+            fecha_nacimiento="1990-01-15",
+            direccion="Lima",
+            telefono="999888777",
+            correo="juan_transacciones@example.com",
+            estado="A"
+        )
+
+    def test_fallo_auditoria_revierte_creacion_cliente(self):
+        self.client.force_login(self.cajero)
+
+        datos = {
+            "dni": "66666666",
+            "nombres": "Pedro",
+            "apellidos": "Lopez",
+            "fecha_nacimiento": "1992-05-20",
+            "direccion": "Lima",
+            "telefono": "988888888",
+            "correo": "pedro_transacciones@example.com",
+            "estado": "A",
+        }
+
+        with patch(
+            "clientes.views.registrar_auditoria",
+            side_effect=Exception("Error de auditoria")
+        ):
+            with self.assertRaises(Exception):
+                self.client.post(
+                    reverse("nuevo_cliente"),
+                    data=datos
+                )
+
+        self.assertFalse(
+            Cliente.objects.filter(dni="66666666").exists()
+        )
+
+    def test_fallo_auditoria_revierte_edicion_cliente(self):
+        self.client.force_login(self.admin)
+
+        datos = {
+            "dni": "77777777",
+            "nombres": "Nombre Modificado",
+            "apellidos": "Apellido Modificado",
+            "fecha_nacimiento": "1990-01-15",
+            "direccion": "Direccion modificada",
+            "telefono": "999888777",
+            "correo": "juan_transacciones@example.com",
+            "estado": "A",
+        }
+
+        with patch(
+            "clientes.views.registrar_auditoria",
+            side_effect=Exception("Error de auditoria")
+        ):
+            with self.assertRaises(Exception):
+                self.client.post(
+                    reverse(
+                        "editar_cliente",
+                        args=[self.cliente.id]
+                    ),
+                    data=datos
+                )
+
+        self.cliente.refresh_from_db()
+
+        self.assertEqual(self.cliente.nombres, "Juan")
+        self.assertEqual(self.cliente.apellidos, "Perez")
+        self.assertEqual(self.cliente.direccion, "Lima")

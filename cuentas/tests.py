@@ -9,7 +9,7 @@ from .forms import CuentaForm
 from auditoria.models import Auditoria
 from unittest.mock import patch
 import threading
-from django.db import close_old_connections
+from django.db import close_old_connections, transaction, IntegrityError
 from django.test import TransactionTestCase, skipUnlessDBFeature
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -66,6 +66,24 @@ class SeguridadCuentasTests(TestCase):
 
     def test_cuenta_tiene_saldo_inicial_correcto(self):
         self.assertEqual(self.cuenta.saldo, Decimal("1000.00"))
+
+    def test_base_datos_rechaza_saldo_negativo(self):
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Cuenta.objects.filter(
+                    pk=self.cuenta.pk
+                ).update(
+                    saldo=Decimal("-1.00")
+                )
+
+        self.cuenta.refresh_from_db()
+
+        # El saldo original debe conservarse.
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("1000.00")
+        )
 
     def test_cuenta_esta_asociada_al_cliente(self):
         self.assertEqual(self.cuenta.cliente, self.cliente)
@@ -175,6 +193,43 @@ class SeguridadCuentasTests(TestCase):
         self.cuenta.refresh_from_db()
 
         self.assertEqual(self.cuenta.estado, "I")
+
+    def test_admin_no_puede_manipular_campos_protegidos(self):
+
+        self.client.force_login(self.admin)
+
+        respuesta = self.client.post(
+            reverse("editar_cuenta", args=[self.cuenta.id]),
+            {
+                "numero_cuenta": "CT99999999",
+                "cliente": self.cliente.id,
+                "tipo_cuenta": "CC",
+                "saldo": "999999.99",
+                "estado": "I",
+            },
+        )
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.numero_cuenta,
+            "CTEST00001"
+        )
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("1000.00")
+        )
+
+        self.assertEqual(
+            self.cuenta.estado,
+            "A"
+        )
+
+        self.assertEqual(
+            self.cuenta.tipo_cuenta,
+            "CC"
+        )
 
     def test_supervisor_no_puede_crear_cuenta(self):
         self.client.force_login(self.supervisor)
@@ -360,6 +415,71 @@ class SeguridadCuentasTests(TestCase):
 
     @patch(
         "cuentas.views.registrar_auditoria",
+        side_effect=Exception("Error simulado de auditoria")
+    )
+    def test_error_auditoria_revierte_edicion_cuenta(
+        self, mock_auditoria
+    ):
+        self.client.force_login(self.admin)
+
+        with self.assertRaises(Exception):
+            self.client.post(
+                reverse("editar_cuenta", args=[self.cuenta.id]),
+                {
+                    "cliente": self.cliente.id,
+                    "tipo_cuenta": "CC",
+                }
+            )
+
+        self.cuenta.refresh_from_db()
+
+        # El tipo de cuenta debe conservar su valor original.
+        self.assertEqual(self.cuenta.tipo_cuenta, "AH")
+
+        # El saldo y el estado tampoco deben modificarse.
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("1000.00")
+        )
+        self.assertEqual(self.cuenta.estado, "A")
+
+    @patch(
+        "cuentas.views.registrar_auditoria",
+        side_effect=Exception("Error simulado de auditoria")
+    )
+    def test_error_auditoria_revierte_desactivacion_cuenta(
+        self, mock_auditoria
+    ):
+        # Para desactivar la cuenta, primero debe tener saldo cero.
+        self.cuenta.saldo = Decimal("0.00")
+        self.cuenta.save(update_fields=["saldo"])
+
+        self.client.force_login(self.admin)
+
+        with self.assertRaises(Exception):
+            self.client.post(
+                reverse("eliminar_cuenta", args=[self.cuenta.id])
+            )
+
+        self.cuenta.refresh_from_db()
+
+        # La cuenta debe continuar activa.
+        self.assertEqual(self.cuenta.estado, "A")
+
+        # El registro debe seguir existiendo.
+        self.assertTrue(
+            Cuenta.objects.filter(id=self.cuenta.id).exists()
+        )
+
+        # No debe haberse creado el registro de auditoría.
+        self.assertFalse(
+            Auditoria.objects.filter(
+                accion="Desactivar cuenta"
+            ).exists()
+        )
+
+    @patch(
+        "cuentas.views.registrar_auditoria",
         side_effect=Exception("Error simulado de auditoría")
     )
 
@@ -538,10 +658,13 @@ class CreacionCuentasConcurrentesTests(TransactionTestCase):
         self.url = reverse("nueva_cuenta")
 
     def test_dos_administradores_crean_cuentas_simultaneamente(self):
+
         barrera = threading.Barrier(2)
         resultados = []
         errores = []
         bloqueo_resultados = threading.Lock()
+
+        cliente_id = self.cliente.pk
 
         def crear_cuenta(admin):
 
@@ -556,7 +679,7 @@ class CreacionCuentasConcurrentesTests(TransactionTestCase):
                 respuesta = cliente_http.post(
                     self.url,
                     {
-                        "cliente": self.cliente.id,
+                        "cliente": cliente_id,
                         "tipo_cuenta": "AH",
                     },
                     secure=True,
@@ -570,95 +693,216 @@ class CreacionCuentasConcurrentesTests(TransactionTestCase):
                     })
 
             except Exception as error:
+
                 with bloqueo_resultados:
                     errores.append(repr(error))
 
             finally:
                 close_old_connections()
 
-                hilos = [
-                    threading.Thread(
-                        target=crear_cuenta,
-                        args=(self.admin1,),
-                    ),
-                    threading.Thread(
-                        target=crear_cuenta,
-                        args=(self.admin2,),
-                    ),
-                ]
+        # Iniciar los dos trabajadores desde el método de prueba.
+        hilos = [
+            threading.Thread(
+                target=crear_cuenta,
+                args=(self.admin1,),
+            ),
+            threading.Thread(
+                target=crear_cuenta,
+                args=(self.admin2,),
+            ),
+        ]
 
+        for hilo in hilos:
+            hilo.start()
 
-                for hilo in hilos:
-                    hilo.start()
+        for hilo in hilos:
+            hilo.join(timeout=30)
 
-                for hilo in hilos:
-                    hilo.join(timeout=30)
+        self.assertFalse(
+            any(hilo.is_alive() for hilo in hilos),
+            "Una creación de cuenta quedó bloqueada más de 30 segundos."
+        )
 
-                self.assertFalse(
-                    any(hilo.is_alive() for hilo in hilos),
-                    "Una creación de cuenta quedó bloqueada más de 30 segundos."
+        self.assertEqual(
+            errores,
+            [],
+            f"Errores durante la creación: {errores}"
+        )
+
+        self.assertEqual(
+            len(resultados),
+            2,
+            f"Se esperaban dos resultados: {resultados}"
+        )
+
+        cuentas_creadas = Cuenta.objects.filter(
+            numero_cuenta__startswith="CTA-"
+        ).order_by("numero_cuenta")
+
+        self.assertEqual(
+            cuentas_creadas.count(),
+            2,
+            "Deben crearse exactamente dos cuentas."
+        )
+
+        numeros = list(
+            cuentas_creadas.values_list(
+                "numero_cuenta",
+                flat=True
+            )
+        )
+
+        self.assertEqual(
+            numeros,
+            ["CTA-000001", "CTA-000002"]
+        )
+
+        contador = CorrelativoCuenta.objects.get(
+            clave="cuenta"
+        )
+
+        self.assertEqual(
+            contador.ultimo_numero,
+            2,
+            "El correlativo debe terminar en 2."
+        )
+
+    def test_creacion_cuenta_y_desactivacion_cliente_simultaneas(self):
+
+        barrera = threading.Barrier(2)
+        resultados = []
+        errores = []
+        bloqueo_resultados = threading.Lock()
+
+        cliente_id = self.cliente.pk
+
+        def crear_cuenta():
+
+            close_old_connections()
+
+            try:
+                cliente_http = self.client_class()
+                cliente_http.force_login(self.admin1)
+
+                barrera.wait(timeout=10)
+
+                respuesta = cliente_http.post(
+                    self.url,
+                    {
+                        "cliente": cliente_id,
+                        "tipo_cuenta": "AH",
+                    },
+                    secure=True,
+                    follow=True,
                 )
 
-                self.assertEqual(
-                    errores,
-                    [],
-                    f"Errores durante la creación: {errores}"
+                with bloqueo_resultados:
+                    resultados.append({
+                        "operacion": "crear_cuenta",
+                        "status": respuesta.status_code,
+                    })
+
+            except Exception as error:
+                with bloqueo_resultados:
+                    errores.append(repr(error))
+
+            finally:
+                close_old_connections()
+
+        def desactivar_cliente():
+
+            close_old_connections()
+
+            try:
+                cliente_http = self.client_class()
+                cliente_http.force_login(self.admin2)
+
+                barrera.wait(timeout=10)
+
+                respuesta = cliente_http.post(
+                    reverse("eliminar_cliente", args=[cliente_id]),
+                    secure=True,
+                    follow=True,
                 )
 
-                self.assertEqual(
-                    len(resultados),
-                    2,
-                    f"Se esperaban dos resultados: {resultados}"
-                )
+                with bloqueo_resultados:
+                    resultados.append({
+                        "operacion": "desactivar_cliente",
+                        "status": respuesta.status_code,
+                    })
 
-                cuentas_creadas = Cuenta.objects.filter(
-                    numero_cuenta__startswith="CTA-"
-                ).order_by("numero_cuenta")
+            except Exception as error:
+                with bloqueo_resultados:
+                    errores.append(repr(error))
 
-                self.assertEqual(
-                    cuentas_creadas.count(),
-                    2,
-                    "Deben crearse exactamente dos cuentas."
-                )
+            finally:
+                close_old_connections()
 
-                numeros = list(
-                    cuentas_creadas.values_list(
-                        "numero_cuenta",
-                        flat=True
-                    )
-                )
+        hilos = [
+            threading.Thread(target=crear_cuenta),
+            threading.Thread(target=desactivar_cliente),
+        ]
 
-                self.assertEqual(
-                    numeros,
-                    ["CTA-000001", "CTA-000002"]
-                )
+        for hilo in hilos:
+            hilo.start()
 
-                cuentas_creadas = Cuenta.objects.filter(
-                    numero_cuenta__startswith="CTA-"
-                ).order_by("numero_cuenta")
+        for hilo in hilos:
+            hilo.join(timeout=30)
 
-                self.assertEqual(
-                    cuentas_creadas.count(),
-                    2,
-                    "Deben crearse exactamente dos cuentas."
-                )
+        self.assertFalse(
+            any(hilo.is_alive() for hilo in hilos),
+            "Una operación quedó bloqueada más de 30 segundos."
+        )
 
-                numeros = list(
-                    cuentas_creadas.values_list(
-                        "numero_cuenta",
-                        flat=True
-                    )
-                )
+        self.assertEqual(
+            errores,
+            [],
+            f"Errores durante la concurrencia: {errores}"
+        )
 
-                self.assertEqual(
-                    numeros,
-                    ["CTA-000001", "CTA-000002"]
-                )
+        self.assertEqual(
+            len(resultados),
+            2,
+            f"Se esperaban dos resultados: {resultados}"
+        )
 
-                contador = CorrelativoCuenta.objects.get(clave="cuenta")
+        # Verificar que ambas operaciones hayan devuelto un resultado.
+        operaciones = [
+            resultado["operacion"]
+            for resultado in resultados
+        ]
 
-                self.assertEqual(
-                    contador.ultimo_numero,
-                    2,
-                    "El correlativo debe terminar en 2."
-                )
+        self.assertCountEqual(
+            operaciones,
+            ["crear_cuenta", "desactivar_cliente"]
+        )
+
+        cliente_final = Cliente.objects.get(pk=cliente_id)
+
+        cuentas_cliente = Cuenta.objects.filter(
+            cliente_id=cliente_id
+        )
+
+        if cliente_final.estado == "I":
+
+            # Si el cliente terminó inactivo, la desactivación
+            # ganó la carrera y no debe existir una cuenta nueva.
+            self.assertFalse(
+                cuentas_cliente.exists(),
+                "Un cliente inactivo terminó con una cuenta."
+            )
+
+        else:
+
+            # Si terminó activo, la creación de cuenta ganó
+            # y la desactivación debió ser rechazada.
+            self.assertEqual(
+                cliente_final.estado,
+                "A",
+                "El estado final del cliente no es válido."
+            )
+
+            self.assertTrue(
+                cuentas_cliente.exists(),
+                "El cliente quedó activo, pero no se creó la cuenta."
+            )

@@ -625,7 +625,7 @@ def reporte_movimientos_pdf(request):
         settings.BASE_DIR,
         "static",
         "img",
-        "logo_banco.png"
+         "logo_banco_python.png"
     )
 
     pdf.setFillColor(colors.HexColor("#0B3A75"))

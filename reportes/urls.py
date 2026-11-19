@@ -48,7 +48,7 @@ urlpatterns = [
     path(
         "clientes/pdf/",
         reporte_clientes_pdf,
-        name="clientes_pdf"
+        name="reporte_clientes_pdf"
     ),
 
     path(

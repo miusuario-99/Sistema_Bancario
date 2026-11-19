@@ -208,7 +208,7 @@ def exportar_auditoria_pdf(request):
         settings.BASE_DIR,
         "static",
         "img",
-        "logo_banco.png"
+         "logo_banco_python.png"
     )
 
     if os.path.exists(ruta_logo):

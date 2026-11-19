@@ -5,6 +5,12 @@ from .models import Auditoria
 from django.contrib.admin.sites import AdminSite
 from .admin import AuditoriaAdmin
 from django.core.exceptions import ValidationError
+from .signals import registrar_login, registrar_logout
+from django.contrib.auth.signals import (
+    user_logged_in,
+    user_logged_out,
+    user_login_failed,
+)
 
 class SeguridadAuditoriaTests(TestCase):
 
@@ -592,4 +598,67 @@ class AuditoriaModeloProteccionTests(TestCase):
         self.assertEqual(
             registro.descripcion,
             "Registro temporal de prueba"
+        )
+
+class SenalesAuditoriaTests(TestCase):
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="usuario_senales",
+            password="ClaveSegura123!"
+        )
+
+    def test_registrar_login(self):
+        registrar_login(
+            sender=User,
+            request=None,
+            user=self.usuario
+        )
+
+        registro = Auditoria.objects.get(
+            usuario=self.usuario,
+            accion="Login"
+        )
+
+        self.assertEqual(registro.modulo, "Seguridad")
+        self.assertIn(self.usuario.username, registro.descripcion)
+
+    def test_registrar_logout(self):
+        registrar_logout(
+            sender=User,
+            request=None,
+            user=self.usuario
+        )
+
+        registro = Auditoria.objects.get(
+            usuario=self.usuario,
+            accion="Logout"
+        )
+
+        self.assertEqual(registro.modulo, "Seguridad")
+        self.assertIn(self.usuario.username, registro.descripcion)
+
+    def test_registrar_login_fallido_sin_contrasena(self):
+        user_login_failed.send(
+            sender=User,
+            credentials={
+                "username": "usuario_inexistente",
+                "password": "NoDebeRegistrarse123!"
+            },
+            request=None
+        )
+
+        registro = Auditoria.objects.get(
+            usuario=None,
+            accion="Login fallido"
+        )
+
+        self.assertEqual(registro.modulo, "Seguridad")
+        self.assertIn(
+            "usuario_inexistente",
+            registro.descripcion
+        )
+        self.assertNotIn(
+            "NoDebeRegistrarse123!",
+            registro.descripcion
         )

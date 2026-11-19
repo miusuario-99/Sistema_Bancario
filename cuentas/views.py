@@ -100,44 +100,78 @@ def nueva_cuenta(request):
 
         if form.is_valid():
 
+            cuenta_creada = False
+
             try:
                 with transaction.atomic():
 
-                    contador = (
-                        CorrelativoCuenta.objects
-                        .select_for_update()
-                        .get(clave="cuenta")
-                    )
-
-                    contador.ultimo_numero += 1
-                    numero_generado = f"CTA-{contador.ultimo_numero:06d}"
-
-                    contador.save(update_fields=["ultimo_numero"])
-
                     cuenta = form.save(commit=False)
-                    cuenta.numero_cuenta = numero_generado
-                    cuenta.saldo = Decimal("0.00")
-                    cuenta.save()
 
-                    registrar_auditoria(
-                        request,
-                        "Cuentas",
-                        "Nueva cuenta",
-                        f"Cuenta {cuenta.numero_cuenta} creada para {cuenta.cliente}"
+                    # Bloquear al cliente antes de crear la cuenta.
+                    cliente = (
+                        Cliente.objects
+                        .select_for_update()
+                        .get(pk=cuenta.cliente_id)
                     )
 
-                messages.success(
-                    request,
-                    "Cuenta creada correctamente."
-                )
+                    # Comprobar nuevamente su estado dentro
+                    # de la transacción.
+                    if cliente.estado != "A":
 
-                return redirect("lista_cuentas")
+                        form.add_error(
+                            "cliente",
+                            "No se pueden crear cuentas para clientes inactivos."
+                        )
+
+                    else:
+
+                        # Bloquear el correlativo.
+                        contador = (
+                            CorrelativoCuenta.objects
+                            .select_for_update()
+                            .get(clave="cuenta")
+                        )
+
+                        contador.ultimo_numero += 1
+
+                        numero_generado = (
+                            f"CTA-{contador.ultimo_numero:06d}"
+                        )
+
+                        contador.save(
+                            update_fields=["ultimo_numero"]
+                        )
+
+                        cuenta.cliente = cliente
+                        cuenta.numero_cuenta = numero_generado
+                        cuenta.saldo = Decimal("0.00")
+                        cuenta.save()
+
+                        registrar_auditoria(
+                            request,
+                            "Cuentas",
+                            "Nueva cuenta",
+                            f"Cuenta {cuenta.numero_cuenta} creada "
+                            f"para {cuenta.cliente}"
+                        )
+
+                        cuenta_creada = True
+
+                if cuenta_creada:
+
+                    messages.success(
+                        request,
+                        "Cuenta creada correctamente."
+                    )
+
+                    return redirect("lista_cuentas")
 
             except IntegrityError:
 
                 messages.error(
                     request,
-                    "No se pudo crear la cuenta por un conflicto de integridad. Intente nuevamente."
+                    "No se pudo crear la cuenta por un conflicto "
+                    "de integridad. Intente nuevamente."
                 )
 
     else:
@@ -468,7 +502,7 @@ def exportar_cuentas_pdf(request):
         settings.BASE_DIR,
         "static",
         "img",
-        "logo_banco.png"
+        "logo_banco_python.png"
     )
 
     if os.path.exists(ruta_logo):

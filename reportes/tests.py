@@ -145,7 +145,7 @@ class GeneracionReportesTests(TestCase):
 
     def test_clientes_pdf(self):
         self.comprobar_reporte(
-            "clientes_pdf",
+            "reporte_clientes_pdf",
             "application/pdf"
         )
 

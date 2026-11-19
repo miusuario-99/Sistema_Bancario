@@ -45,7 +45,7 @@ class SeguridadUsuariosTests(TestCase):
         respuesta = self.client.get(reverse("lista_usuarios"))
 
         self.assertEqual(respuesta.status_code, 200)
-        
+
     def test_superusuario_puede_ver_lista_sin_pertenecer_al_grupo(self):
         superusuario = User.objects.create_superuser(
             username="superusuario_test",
@@ -58,13 +58,26 @@ class SeguridadUsuariosTests(TestCase):
         respuesta = self.client.get(reverse("lista_usuarios"))
 
         self.assertEqual(respuesta.status_code, 200)
-        
+
     def test_usuario_sin_grupo_no_puede_ver_lista(self):
         self.client.force_login(self.usuario_objetivo)
 
         respuesta = self.client.get(reverse("lista_usuarios"))
 
         self.assertEqual(respuesta.status_code, 403)
+
+    def test_usuario_anonimo_es_redirigido_al_login(self):
+
+        respuesta = self.client.get(
+            reverse("lista_usuarios")
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+
+        self.assertIn(
+            "/login/",
+            respuesta.url
+        )
 
     def test_cajero_no_puede_ver_lista(self):
         self.client.force_login(self.cajero)

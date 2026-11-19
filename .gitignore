@@ -41,6 +41,9 @@ estructura.txt
 # Respaldos locales del proyecto
 *_backup.py
 *_antes_*.py
+requirements_utf16_backup.txt
 
 # Configuraci√≥n local de pruebas de concurrencia
 banco/settings_concurrencia.py
+# Archivos est·ticos generados por Django
+/staticfiles/

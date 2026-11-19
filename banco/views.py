@@ -370,7 +370,7 @@ def estado_cuenta_pdf(request, cuenta_id):
             settings.BASE_DIR,
             "static",
             "img",
-            "logo_banco.png"
+            "logo_banco_python.png"
         )
 
         if os.path.isfile(logo):

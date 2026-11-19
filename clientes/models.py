@@ -1,5 +1,14 @@
 from django.db import models
 from django.core.validators import RegexValidator
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.db.models.functions import Lower
+
+def validar_fecha_nacimiento(fecha):
+    if fecha > timezone.localdate():
+        raise ValidationError(
+            "La fecha de nacimiento no puede ser futura."
+        )
 
 class Cliente(models.Model):
     ESTADO = [
@@ -19,7 +28,9 @@ class Cliente(models.Model):
 )
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
-    fecha_nacimiento = models.DateField()
+    fecha_nacimiento = models.DateField(
+        validators=[validar_fecha_nacimiento]
+    )
     direccion = models.CharField(max_length=200)
     telefono = models.CharField(
     max_length=9,
@@ -41,7 +52,7 @@ class Cliente(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                fields=['correo'],
+                Lower('correo'),
                 name='unique_correo_cliente'
             )
         ]

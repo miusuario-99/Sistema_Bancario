@@ -4,6 +4,7 @@ from .models import Cliente
 from .forms import ClienteForm
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.db import transaction
 from openpyxl import Workbook
 from django.http import HttpResponse
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -14,7 +15,9 @@ from auditoria.utils import registrar_auditoria
 from openpyxl.styles import PatternFill, Alignment
 from usuarios.decorators import grupos_permitidos
 from cuentas.models import Cuenta
-
+from xml.sax.saxutils import escape
+import os
+from django.conf import settings
 
 # ==========================
 # LISTAR CLIENTES
@@ -80,14 +83,19 @@ def nuevo_cliente(request):
         form = ClienteForm(request.POST)
 
         if form.is_valid():
-            cliente = form.save()
 
-            registrar_auditoria(
-                request,
-                "Clientes",
-                "Nuevo cliente",
-                f"Cliente: {cliente.dni} - {cliente.nombres} {cliente.apellidos}"
-            )
+            with transaction.atomic():
+
+                cliente = form.save()
+
+                registrar_auditoria(
+                    request,
+                    "Clientes",
+                    "Nuevo cliente",
+                    f"Cliente: {cliente.dni} - "
+                    f"{cliente.nombres} {cliente.apellidos}"
+                )
+
             messages.success(request, "Cliente registrado correctamente.")
             return redirect("lista_clientes")
 
@@ -115,14 +123,18 @@ def editar_cliente(request, id):
 
         if form.is_valid():
 
-            cliente = form.save()
+            with transaction.atomic():
 
-            registrar_auditoria(
-                request,
-                "Clientes",
-                "Editar",
-                f"Cliente: {cliente.dni} - {cliente.nombres} {cliente.apellidos}"
-            )
+                cliente = form.save()
+
+                registrar_auditoria(
+                    request,
+                    "Clientes",
+                    "Editar",
+                    f"Cliente: {cliente.dni} - "
+                    f"{cliente.nombres} {cliente.apellidos}"
+                )
+
             messages.success(request, "Cliente actualizado correctamente.")
             return redirect("lista_clientes")
 
@@ -148,43 +160,46 @@ def eliminar_cliente(request, id):
         )
         return redirect("lista_clientes")
 
-    cliente = get_object_or_404(Cliente, id=id)
+    with transaction.atomic():
 
-    # Evitar operaciones innecesarias sobre clientes inactivos.
-    if cliente.estado == "I":
-        messages.warning(
-            request,
-            "El cliente ya se encuentra inactivo."
+        # Bloquear al cliente para sincronizar esta operación
+        # con la creación de cuentas.
+        cliente = get_object_or_404(
+            Cliente.objects.select_for_update(),
+            id=id
         )
-        return redirect("lista_clientes")
 
-    # Conservar la protección de las cuentas bancarias.
-    if Cuenta.objects.filter(cliente=cliente).exists():
-        messages.error(
-            request,
-            "No se puede desactivar este cliente porque "
-            "tiene cuentas bancarias asociadas. "
-            "Debe conservarse su historial bancario."
+        if cliente.estado == "I":
+            messages.warning(
+                request,
+                "El cliente ya se encuentra inactivo."
+            )
+            return redirect("lista_clientes")
+
+        # Comprobar las cuentas mientras mantenemos el bloqueo.
+        if Cuenta.objects.filter(cliente=cliente).exists():
+            messages.error(
+                request,
+                "No se puede desactivar este cliente porque "
+                "tiene cuentas bancarias asociadas. "
+                "Debe conservarse su historial bancario."
+            )
+            return redirect("lista_clientes")
+
+        detalle_cliente = (
+            f"Cliente: {cliente.dni} - "
+            f"{cliente.nombres} {cliente.apellidos}"
         )
-        return redirect("lista_clientes")
 
-    # Guardar los datos antes de modificar el estado.
-    detalle_cliente = (
-        f"Cliente: {cliente.dni} - "
-        f"{cliente.nombres} {cliente.apellidos}"
-    )
+        registrar_auditoria(
+            request,
+            "Clientes",
+            "Desactivar",
+            detalle_cliente
+        )
 
-    # Registrar la operación en la auditoría.
-    registrar_auditoria(
-        request,
-        "Clientes",
-        "Desactivar",
-        detalle_cliente
-    )
-
-    # Desactivación lógica: no se elimina el registro.
-    cliente.estado = "I"
-    cliente.save(update_fields=["estado"])
+        cliente.estado = "I"
+        cliente.save(update_fields=["estado"])
 
     messages.success(
         request,
@@ -241,33 +256,26 @@ def exportar_clientes_excel(request):
             else "Inactivo"
         )
 
-        ws.append([
-
+        fila = [
             numero,
-
             cliente.dni,
-
             cliente.nombres,
-
             cliente.apellidos,
-
-            cliente.fecha_nacimiento.strftime(
-                "%d/%m/%Y"
-            ),
-
+            cliente.fecha_nacimiento.strftime("%d/%m/%Y"),
             cliente.direccion,
-
             cliente.telefono,
-
             cliente.correo,
-
             estado,
+            cliente.fecha_registro.strftime("%d/%m/%Y %H:%M"),
+        ]
 
-            cliente.fecha_registro.strftime(
-                "%d/%m/%Y %H:%M"
-            ),
+        ws.append(fila)
 
-        ])
+        # Forzar los valores de texto como cadenas,
+        # evitando que Excel interprete fórmulas.
+        for celda in ws[ws.max_row]:
+            if isinstance(celda.value, str):
+                celda.data_type = "s"
 
     # ============================
     # ESTILO DEL ENCABEZADO
@@ -431,7 +439,7 @@ def exportar_clientes_pdf(request):
         settings.BASE_DIR,
         "static",
         "img",
-        "logo_banco.png",
+        "logo_banco_python.png",
     )
 
     if os.path.exists(ruta_logo):
@@ -508,16 +516,16 @@ def exportar_clientes_pdf(request):
             str(numero),
             str(cliente.dni),
             Paragraph(
-                str(cliente.nombres),
+                escape(str(cliente.nombres)),
                 estilo_celda,
             ),
             Paragraph(
-                str(cliente.apellidos),
+                escape(str(cliente.apellidos)),
                 estilo_celda,
             ),
             str(cliente.telefono),
             Paragraph(
-                str(cliente.correo),
+                escape(str(cliente.correo)),
                 estilo_celda,
             ),
             estado,
