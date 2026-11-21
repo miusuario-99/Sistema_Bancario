@@ -626,6 +626,47 @@ class SeguridadDepositoRetiroTests(TestCase):
 
         self.assertEqual(movimientos.count(), 2)
 
+    def test_deposito_misma_clave_con_distinto_importe_es_rechazado(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        datos["monto"] = "300.00"
+
+        respuesta2 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("1200.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
+
     def test_deposito_con_mas_de_dos_decimales_es_rechazado(self):
         respuesta = self.client.post(
             reverse("deposito"),
@@ -881,8 +922,361 @@ class SeguridadDepositoRetiroTests(TestCase):
 
         self.assertEqual(Movimiento.objects.count(), 0)
 
+    def test_retiro_misma_clave_con_distinto_importe_es_rechazado(self):
 
+        idempotency_key = self.obtener_idempotency_key()
 
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        datos["monto"] = "300.00"
+
+        respuesta2 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("800.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
+
+    def test_transferencia_misma_clave_con_distinto_importe_es_rechazada(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "origen": self.cuenta.numero_cuenta,
+            "destino": self.cuenta_destino.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.enviar_transferencia_como_admin(datos)
+
+        datos["monto"] = "300.00"
+
+        respuesta2 = self.enviar_transferencia_como_admin(datos)
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+        self.cuenta_destino.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("800.00")
+        )
+
+        self.assertEqual(
+            self.cuenta_destino.saldo,
+            Decimal("700.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(
+            Movimiento.objects.filter(
+                operacion__idempotency_key=idempotency_key
+            ).count(),
+            2
+        )
+
+    def test_deposito_misma_clave_otro_usuario_es_rechazado(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        datos["monto"] = "300.00"
+
+        self.client.force_login(self.admin)
+
+        respuesta2 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("1200.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
+
+    def test_retiro_misma_clave_otro_usuario_es_rechazado(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        datos["monto"] = "300.00"
+
+        self.client.force_login(self.admin)
+
+        respuesta2 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("800.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
+
+    def test_transferencia_misma_clave_otro_usuario_es_rechazada(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "origen": self.cuenta.numero_cuenta,
+            "destino": self.cuenta_destino.numero_cuenta,
+            "monto": "200.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        self.client.force_login(self.admin)
+
+        respuesta1 = self.client.post(
+            reverse("transferencia"),
+            datos
+        )
+
+        self.client.force_login(self.cajero)
+
+        datos["monto"] = "300.00"
+
+        respuesta2 = self.client.post(
+            reverse("transferencia"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+        self.cuenta_destino.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("800.00")
+        )
+
+        self.assertEqual(
+            self.cuenta_destino.saldo,
+            Decimal("700.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(
+            Movimiento.objects.filter(
+                operacion__idempotency_key=idempotency_key
+            ).count(),
+            2
+        )
+
+    def test_retiro_duplicado_se_reconoce_con_saldo_insuficiente(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "900.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        respuesta2 = self.client.post(
+            reverse("retiro"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("100.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
+
+    def test_transferencia_duplicada_se_reconoce_con_saldo_insuficiente(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        datos = {
+            "origen": self.cuenta.numero_cuenta,
+            "destino": self.cuenta_destino.numero_cuenta,
+            "monto": "900.00",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.enviar_transferencia_como_admin(datos)
+        respuesta2 = self.enviar_transferencia_como_admin(datos)
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+        self.cuenta_destino.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("100.00")
+        )
+
+        self.assertEqual(
+            self.cuenta_destino.saldo,
+            Decimal("1400.00")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(
+            Movimiento.objects.filter(
+                operacion__idempotency_key=idempotency_key
+            ).count(),
+            2
+        )
+
+    def test_deposito_duplicado_se_reconoce_con_saldo_maximo(self):
+
+        idempotency_key = self.obtener_idempotency_key()
+
+        self.cuenta.saldo = Decimal("9999999999.00")
+        self.cuenta.save(update_fields=["saldo"])
+
+        datos = {
+            "numero_cuenta": self.cuenta.numero_cuenta,
+            "monto": "0.50",
+            "idempotency_key": idempotency_key,
+        }
+
+        respuesta1 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        respuesta2 = self.client.post(
+            reverse("deposito"),
+            datos
+        )
+
+        self.assertEqual(respuesta1.status_code, 302)
+        self.assertEqual(respuesta2.status_code, 302)
+
+        self.cuenta.refresh_from_db()
+
+        self.assertEqual(
+            self.cuenta.saldo,
+            Decimal("9999999999.50")
+        )
+
+        self.assertEqual(
+            OperacionBancaria.objects.filter(
+                idempotency_key=idempotency_key
+            ).count(),
+            1
+        )
+
+        self.assertEqual(Movimiento.objects.count(), 1)
 
 class SeguridadReportesTests(TestCase):
 

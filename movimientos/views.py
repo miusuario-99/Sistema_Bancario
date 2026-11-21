@@ -4,6 +4,8 @@ from django.db import transaction, IntegrityError
 from cuentas.models import Cuenta
 from .models import Movimiento, OperacionBancaria
 import uuid
+import hashlib
+import json
 from decimal import Decimal, InvalidOperation
 from django.http import HttpResponse
 from reportlab.pdfgen import canvas
@@ -18,6 +20,41 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from usuarios.decorators import grupos_permitidos
 from auditoria.utils import registrar_auditoria
 from django.db.models import Sum, Q
+
+def generar_huella(usuario_id, tipo, monto, cuenta_origen, cuenta_destino=None):
+    datos = {
+        "usuario_id": usuario_id,
+        "tipo": tipo,
+        "monto": format(monto, ".2f"),
+        "cuenta_origen": cuenta_origen,
+        "cuenta_destino": cuenta_destino,
+    }
+
+    contenido = json.dumps(
+        datos,
+        sort_keys=True,
+        separators=(",", ":")
+    )
+
+    return hashlib.sha256(contenido.encode("utf-8")).hexdigest()
+
+def verificar_idempotencia(idempotency_key, usuario_id, tipo, huella):
+
+    operacion_existente = OperacionBancaria.objects.filter(
+        idempotency_key=idempotency_key
+    ).first()
+
+    if not operacion_existente:
+        return "NUEVA"
+
+    if (
+        operacion_existente.usuario_id == usuario_id
+        and operacion_existente.tipo == tipo
+        and operacion_existente.huella == huella
+    ):
+        return "DUPLICADA"
+
+    return "CONFLICTO"
 
 @grupos_permitidos("Administrador", "Cajero")
 def deposito(request):
@@ -81,6 +118,38 @@ def deposito(request):
             )
             return redirect("deposito")
 
+        # Generar huella digital de la solicitud
+        huella = generar_huella(
+            usuario_id=request.user.id,
+            tipo="D",
+            monto=monto,
+            cuenta_origen=numero_cuenta,
+        )
+
+        # Verificar si la clave ya fue utilizada
+        estado_idempotencia = verificar_idempotencia(
+            idempotency_key=idempotency_key,
+            usuario_id=request.user.id,
+            tipo="D",
+            huella=huella,
+        )
+
+        if estado_idempotencia == "DUPLICADA":
+            messages.warning(
+                request,
+                "Este depósito ya fue procesado. "
+                "No se realizó otro depósito."
+            )
+            return redirect("deposito")
+
+        if estado_idempotencia == "CONFLICTO":
+            messages.error(
+                request,
+                "Conflicto: la clave de operación ya fue utilizada "
+                "con datos diferentes."
+            )
+            return redirect("deposito")
+
 
         try:
             with transaction.atomic():
@@ -110,7 +179,8 @@ def deposito(request):
                 operacion = OperacionBancaria.objects.create(
                     idempotency_key=idempotency_key,
                     usuario=request.user,
-                    tipo="D"
+                    tipo="D",
+                    huella=huella
                 )
 
                 saldo_anterior = cuenta.saldo
@@ -142,19 +212,30 @@ def deposito(request):
 
         except IntegrityError:
             operacion_existente = OperacionBancaria.objects.filter(
-                idempotency_key=idempotency_key,
-                usuario=request.user,
-                tipo="D"
-            ).exists()
+                idempotency_key=idempotency_key
+            ).first()
 
             if operacion_existente:
-                messages.warning(
-                    request,
-                    "Este depósito ya fue procesado. No se realizó otro depósito."
-                )
+                if (
+                    operacion_existente.usuario_id == request.user.id
+                    and operacion_existente.tipo == "D"
+                    and operacion_existente.huella == huella
+                ):
+                    messages.warning(
+                        request,
+                        "Este depósito ya fue procesado. "
+                        "No se realizó otro depósito."
+                    )
+                else:
+                    messages.error(
+                        request,
+                        "Conflicto: la clave de operación ya fue utilizada "
+                        "con datos diferentes."
+                    )
+
                 return redirect("deposito")
-            else:
-                raise
+
+            raise
 
     return render(
         request,
@@ -236,6 +317,38 @@ def retiro(request):
             )
             return redirect("retiro")
 
+        # Generar huella digital de la solicitud
+        huella = generar_huella(
+            usuario_id=request.user.id,
+            tipo="R",
+            monto=monto,
+            cuenta_origen=numero_cuenta,
+        )
+
+        # Verificar si la clave ya fue utilizada
+        estado_idempotencia = verificar_idempotencia(
+            idempotency_key=idempotency_key,
+            usuario_id=request.user.id,
+            tipo="R",
+            huella=huella,
+        )
+
+        if estado_idempotencia == "DUPLICADA":
+            messages.warning(
+                request,
+                "Este retiro ya fue procesado. "
+                "No se realizó otro retiro."
+            )
+            return redirect("retiro")
+
+        if estado_idempotencia == "CONFLICTO":
+            messages.error(
+                request,
+                "Conflicto: la clave de operación ya fue utilizada "
+                "con datos diferentes."
+            )
+            return redirect("retiro")
+
         # 4. Procesar el retiro dentro de una transacción
         try:
             with transaction.atomic():
@@ -264,7 +377,8 @@ def retiro(request):
                 operacion = OperacionBancaria.objects.create(
                     idempotency_key=idempotency_key,
                     usuario=request.user,
-                    tipo="R"
+                    tipo="R",
+                    huella=huella
                 )
 
                 # Guardar el saldo anterior
@@ -307,19 +421,30 @@ def retiro(request):
 
         except IntegrityError:
             operacion_existente = OperacionBancaria.objects.filter(
-                idempotency_key=idempotency_key,
-                usuario=request.user,
-                tipo="R"
-            ).exists()
+                idempotency_key=idempotency_key
+            ).first()
 
             if operacion_existente:
-                messages.warning(
-                    request,
-                    "Este retiro ya fue procesado. No se realizó otro retiro."
-                )
+                if (
+                    operacion_existente.usuario_id == request.user.id
+                    and operacion_existente.tipo == "R"
+                    and operacion_existente.huella == huella
+                ):
+                    messages.warning(
+                        request,
+                        "Este retiro ya fue procesado. "
+                        "No se realizó otro retiro."
+                    )
+                else:
+                    messages.error(
+                        request,
+                        "Conflicto: la clave de operación ya fue utilizada "
+                        "con datos diferentes."
+                    )
+
                 return redirect("retiro")
-            else:
-                raise
+
+            raise
 
     return render(
         request,
@@ -404,6 +529,39 @@ def transferencia(request):
             )
             return redirect("transferencia")
 
+        # Generar huella digital de la solicitud
+        huella = generar_huella(
+            usuario_id=request.user.id,
+            tipo="T",
+            monto=monto,
+            cuenta_origen=origen_num,
+            cuenta_destino=destino_num,
+        )
+
+        # Verificar si la clave ya fue utilizada
+        estado_idempotencia = verificar_idempotencia(
+            idempotency_key=idempotency_key,
+            usuario_id=request.user.id,
+            tipo="T",
+            huella=huella,
+        )
+
+        if estado_idempotencia == "DUPLICADA":
+            messages.warning(
+                request,
+                "Esta transferencia ya fue procesada. "
+                "No se realizó otra transferencia."
+            )
+            return redirect("transferencia")
+
+        if estado_idempotencia == "CONFLICTO":
+            messages.error(
+                request,
+                "Conflicto: la clave de operación ya fue utilizada "
+                "con datos diferentes."
+            )
+            return redirect("transferencia")
+
         # 3. Procesar la transferencia de forma atómica
         try:
             with transaction.atomic():
@@ -456,7 +614,8 @@ def transferencia(request):
                 operacion = OperacionBancaria.objects.create(
                     idempotency_key=idempotency_key,
                     usuario=request.user,
-                    tipo="T"
+                    tipo="T",
+                    huella=huella
                 )
 
                 # 6. Descontar el monto de la cuenta origen
@@ -519,19 +678,30 @@ def transferencia(request):
 
         except IntegrityError:
             operacion_existente = OperacionBancaria.objects.filter(
-                idempotency_key=idempotency_key,
-                usuario=request.user,
-                tipo="T"
-            ).exists()
+                idempotency_key=idempotency_key
+            ).first()
 
             if operacion_existente:
-                messages.warning(
-                    request,
-                    "Esta transferencia ya fue procesada. No se realizó otra transferencia."
-                )
+                if (
+                    operacion_existente.usuario_id == request.user.id
+                    and operacion_existente.tipo == "T"
+                    and operacion_existente.huella == huella
+                ):
+                    messages.warning(
+                        request,
+                        "Esta transferencia ya fue procesada. "
+                        "No se realizó otra transferencia."
+                    )
+                else:
+                    messages.error(
+                        request,
+                        "Conflicto: la clave de operación ya fue utilizada "
+                        "con datos diferentes."
+                    )
+
                 return redirect("transferencia")
-            else:
-                raise
+
+            raise
 
     return render(
         request,

@@ -27,6 +27,12 @@ class OperacionBancaria(models.Model):
         choices=TIPO_OPERACION
     )
 
+    huella = models.CharField(
+        max_length=64,
+        blank=True,
+        default=""
+    )
+
     fecha = models.DateTimeField(
         auto_now_add=True
     )
