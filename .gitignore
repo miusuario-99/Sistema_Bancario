@@ -47,3 +47,11 @@ requirements_utf16_backup.txt
 banco/settings_concurrencia.py
 # Archivos estáticos generados por Django
 /staticfiles/
+
+# Archivos temporales de editores
+*.swp
+*.swo
+*~
+
+# Respaldos locales
+backups/
